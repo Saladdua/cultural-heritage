@@ -1,92 +1,170 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent } from "@/components/ui/card"
-import { HexColorPicker } from "@/components/color-picker"
-import { ArrowLeft, Maximize, Minimize, RotateCcw, Layers, Palette, SlidersHorizontal } from "lucide-react"
-import Link from "next/link"
-import ThreeJsViewer from "@/components/three-js-viewer"
+import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { HexColorPicker } from "@/components/color-picker";
+import {
+  ArrowLeft,
+  Maximize,
+  Minimize,
+  RotateCcw,
+  Layers,
+  Palette,
+  SlidersHorizontal,
+} from "lucide-react";
+import Link from "next/link";
+import ThreeJsViewer from "@/components/three-js-viewer";
 
 // Mock data - in a real app, this would come from the Flask API
 const modelData = {
-  1: { id: 1, name: "Parthenon Fragment.obj", folderId: 1, url: "/assets/3d/duck.glb" },
-  2: { id: 2, name: "Athena Statue.ply", folderId: 1, url: "/assets/3d/duck.glb" },
-  3: { id: 3, name: "Doric Column.stl", folderId: 1, url: "/assets/3d/duck.glb" },
-  4: { id: 4, name: "Ancient Vase.obj", folderId: 1, url: "/assets/3d/duck.glb" },
-  5: { id: 5, name: "Corinthian Capital.ply", folderId: 1, url: "/assets/3d/duck.glb" },
-  6: { id: 6, name: "Augustus Statue.obj", folderId: 2, url: "/assets/3d/duck.glb" },
+  1: {
+    id: 1,
+    name: "Parthenon Fragment.obj",
+    folderId: 1,
+    url: "/assets/3d/bunny.stl",
+  },
+  2: {
+    id: 2,
+    name: "Athena Statue.ply",
+    folderId: 1,
+    url: "/assets/3d/duck.glb",
+  },
+  3: {
+    id: 3,
+    name: "Doric Column.stl",
+    folderId: 1,
+    url: "/assets/3d/duck.glb",
+  },
+  4: {
+    id: 4,
+    name: "Ancient Vase.obj",
+    folderId: 1,
+    url: "/assets/3d/duck.glb",
+  },
+  5: {
+    id: 5,
+    name: "Corinthian Capital.ply",
+    folderId: 1,
+    url: "/assets/3d/duck.glb",
+  },
+  6: {
+    id: 6,
+    name: "Augustus Statue.obj",
+    folderId: 2,
+    url: "/assets/3d/duck.glb",
+  },
   7: { id: 7, name: "Roman Bust.ply", folderId: 2, url: "/assets/3d/duck.glb" },
-  8: { id: 8, name: "Trajan Column Fragment.stl", folderId: 2, url: "/assets/3d/duck.glb" },
-  9: { id: 9, name: "Sphinx Fragment.obj", folderId: 3, url: "/assets/3d/duck.glb" },
-  10: { id: 10, name: "Pharaoh Mask.ply", folderId: 3, url: "/assets/3d/duck.glb" },
-  11: { id: 11, name: "Hieroglyphic Panel.stl", folderId: 3, url: "/assets/3d/duck.glb" },
-  12: { id: 12, name: "Anubis Statue.obj", folderId: 3, url: "/assets/3d/duck.glb" },
-  13: { id: 13, name: "Scarab Artifact.ply", folderId: 3, url: "/assets/3d/duck.glb" },
-  14: { id: 14, name: "Obelisk Fragment.stl", folderId: 3, url: "/assets/3d/duck.glb" },
-  15: { id: 15, name: "Sarcophagus Detail.obj", folderId: 3, url: "/assets/3d/duck.glb" },
-}
+  8: {
+    id: 8,
+    name: "Trajan Column Fragment.stl",
+    folderId: 2,
+    url: "/assets/3d/duck.glb",
+  },
+  9: {
+    id: 9,
+    name: "Sphinx Fragment.obj",
+    folderId: 3,
+    url: "/assets/3d/duck.glb",
+  },
+  10: {
+    id: 10,
+    name: "Pharaoh Mask.ply",
+    folderId: 3,
+    url: "/assets/3d/duck.glb",
+  },
+  11: {
+    id: 11,
+    name: "Hieroglyphic Panel.stl",
+    folderId: 3,
+    url: "/assets/3d/duck.glb",
+  },
+  12: {
+    id: 12,
+    name: "Anubis Statue.obj",
+    folderId: 3,
+    url: "/assets/3d/duck.glb",
+  },
+  13: {
+    id: 13,
+    name: "Scarab Artifact.ply",
+    folderId: 3,
+    url: "/assets/3d/duck.glb",
+  },
+  14: {
+    id: 14,
+    name: "Obelisk Fragment.stl",
+    folderId: 3,
+    url: "/assets/3d/duck.glb",
+  },
+  15: {
+    id: 15,
+    name: "Sarcophagus Detail.obj",
+    folderId: 3,
+    url: "/assets/3d/duck.glb",
+  },
+};
 
 const folderNames = {
   1: "Greek Artifacts",
   2: "Roman Sculptures",
   3: "Egyptian Collection",
-}
+};
 
 export default function ViewerPage() {
-  const searchParams = useSearchParams()
-  const modelId = Number(searchParams.get("model") || "1")
-  const folderId = Number(searchParams.get("folder") || "1")
-  const model = modelData[modelId as keyof typeof modelData]
+  const searchParams = useSearchParams();
+  const modelId = Number(searchParams.get("model") || "1");
+  const folderId = Number(searchParams.get("folder") || "1");
+  const model = modelData[modelId as keyof typeof modelData];
 
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [explodeAmount, setExplodeAmount] = useState(0)
-  const [selectedColor, setSelectedColor] = useState("#6E56CF")
-  const [selectedFace, setSelectedFace] = useState<number | null>(null)
-  const [colorsByFace, setColorsByFace] = useState<Record<number, string>>({})
-  const viewerContainerRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [explodeAmount, setExplodeAmount] = useState(0);
+  const [selectedColor, setSelectedColor] = useState("#6E56CF");
+  const [selectedFace, setSelectedFace] = useState<number | null>(null);
+  const [colorsByFace, setColorsByFace] = useState<Record<number, string>>({});
+  const viewerContainerRef = useRef<HTMLDivElement>(null);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      viewerContainerRef.current?.requestFullscreen()
-      setIsFullscreen(true)
+      viewerContainerRef.current?.requestFullscreen();
+      setIsFullscreen(true);
     } else {
-      document.exitFullscreen()
-      setIsFullscreen(false)
+      document.exitFullscreen();
+      setIsFullscreen(false);
     }
-  }
+  };
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement)
-    }
+      setIsFullscreen(!!document.fullscreenElement);
+    };
 
-    document.addEventListener("fullscreenchange", handleFullscreenChange)
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange)
-    }
-  }, [])
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   const handleFaceSelect = (faceIndex: number) => {
-    setSelectedFace(faceIndex)
-  }
+    setSelectedFace(faceIndex);
+  };
 
   const applyColorToFace = () => {
     if (selectedFace !== null) {
       setColorsByFace({
         ...colorsByFace,
         [selectedFace]: selectedColor,
-      })
+      });
     }
-  }
+  };
 
   const resetColors = () => {
-    setColorsByFace({})
-    setSelectedFace(null)
-  }
+    setColorsByFace({});
+    setSelectedFace(null);
+  };
 
   if (!model) {
     return (
@@ -97,7 +175,7 @@ export default function ViewerPage() {
           <Button>Back to Folders</Button>
         </Link>
       </div>
-    )
+    );
   }
 
   return (
@@ -111,7 +189,9 @@ export default function ViewerPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold">{model.name}</h1>
-            <p className="text-slate-600">{folderNames[folderId as keyof typeof folderNames]}</p>
+            <p className="text-slate-600">
+              {folderNames[folderId as keyof typeof folderNames]}
+            </p>
           </div>
         </div>
 
@@ -137,7 +217,11 @@ export default function ViewerPage() {
                   className="bg-white/80 backdrop-blur-sm"
                   onClick={toggleFullscreen}
                 >
-                  {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                  {isFullscreen ? (
+                    <Minimize className="h-4 w-4" />
+                  ) : (
+                    <Maximize className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             </div>
@@ -162,7 +246,9 @@ export default function ViewerPage() {
                   <CardContent className="pt-6">
                     <div className="space-y-4">
                       <div>
-                        <h3 className="text-sm font-medium mb-2">Navigation Controls</h3>
+                        <h3 className="text-sm font-medium mb-2">
+                          Navigation Controls
+                        </h3>
                         <ul className="text-sm text-slate-600 space-y-2">
                           <li>• Left click + drag: Rotate model</li>
                           <li>• Right click + drag: Pan camera</li>
@@ -173,7 +259,11 @@ export default function ViewerPage() {
 
                       <div>
                         <h3 className="text-sm font-medium mb-2">Reset View</h3>
-                        <Button variant="outline" className="w-full" onClick={() => {}}>
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => {}}
+                        >
                           <RotateCcw className="h-4 w-4 mr-2" /> Reset Camera
                         </Button>
                       </div>
@@ -187,23 +277,30 @@ export default function ViewerPage() {
                   <CardContent className="pt-6">
                     <div className="space-y-4">
                       <div>
-                        <h3 className="text-sm font-medium mb-2">Explode Model</h3>
+                        <h3 className="text-sm font-medium mb-2">
+                          Explode Model
+                        </h3>
                         <p className="text-sm text-slate-600 mb-4">
-                          Separate the model into individual faces to examine internal structures.
+                          Separate the model into individual faces to examine
+                          internal structures.
                         </p>
 
                         <div className="space-y-4">
                           <div>
                             <div className="flex justify-between mb-2">
                               <span className="text-sm">Explosion Amount</span>
-                              <span className="text-sm font-medium">{explodeAmount.toFixed(1)}</span>
+                              <span className="text-sm font-medium">
+                                {explodeAmount.toFixed(1)}
+                              </span>
                             </div>
                             <Slider
                               value={[explodeAmount]}
                               min={0}
                               max={2}
                               step={0.1}
-                              onValueChange={(value) => setExplodeAmount(value[0])}
+                              onValueChange={(value) =>
+                                setExplodeAmount(value[0])
+                              }
                             />
                           </div>
 
@@ -227,24 +324,38 @@ export default function ViewerPage() {
                   <CardContent className="pt-6">
                     <div className="space-y-4">
                       <div>
-                        <h3 className="text-sm font-medium mb-2">Colorize Faces</h3>
+                        <h3 className="text-sm font-medium mb-2">
+                          Colorize Faces
+                        </h3>
                         <p className="text-sm text-slate-600 mb-4">
-                          Click on a face of the model to select it, then choose a color to apply.
+                          Click on a face of the model to select it, then choose
+                          a color to apply.
                         </p>
 
                         <div className="space-y-4">
                           <div>
                             <div className="mb-2">
                               <span className="text-sm">
-                                Selected Face: {selectedFace !== null ? `#${selectedFace}` : "None"}
+                                Selected Face:{" "}
+                                {selectedFace !== null
+                                  ? `#${selectedFace}`
+                                  : "None"}
                               </span>
                             </div>
 
                             <div className="mb-4">
-                              <HexColorPicker color={selectedColor} onChange={setSelectedColor} className="w-full" />
+                              <HexColorPicker
+                                color={selectedColor}
+                                onChange={setSelectedColor}
+                                className="w-full"
+                              />
                             </div>
 
-                            <Button className="w-full mb-2" onClick={applyColorToFace} disabled={selectedFace === null}>
+                            <Button
+                              className="w-full mb-2"
+                              onClick={applyColorToFace}
+                              disabled={selectedFace === null}
+                            >
                               Apply Color
                             </Button>
 
@@ -268,5 +379,5 @@ export default function ViewerPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
