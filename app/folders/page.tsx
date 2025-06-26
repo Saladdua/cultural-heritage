@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,76 +14,170 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Trash2, FolderPlus, Edit, Folder } from "lucide-react"
+import { Trash2, FolderPlus, Edit, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
-// Mock data - in a real app, this would come from the Flask API
-const initialFolders = [
-  { id: 1, name: "Greek Artifacts", fileCount: 5, createdAt: "2023-05-10" },
-  { id: 2, name: "Roman Sculptures", fileCount: 3, createdAt: "2023-06-15" },
-  { id: 3, name: "Egyptian Collection", fileCount: 7, createdAt: "2023-07-22" },
-]
+interface FolderType {
+  id: number
+  name: string
+  file_count: number
+  created_at: string
+}
 
 export default function FoldersPage() {
-  const [folders, setFolders] = useState(initialFolders)
+  const [folders, setFolders] = useState<FolderType[]>([])
+  const [loading, setLoading] = useState(true)
   const [newFolderName, setNewFolderName] = useState("")
   const [editingFolder, setEditingFolder] = useState<{ id: number; name: string } | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [folderToDelete, setFolderToDelete] = useState<number | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const { toast } = useToast()
 
-  const handleCreateFolder = () => {
+  // Fetch folders from API
+  useEffect(() => {
+    fetchFolders()
+  }, [])
+
+  const fetchFolders = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("http://localhost:5000/api/folders")
+      if (response.ok) {
+        const data = await response.json()
+        setFolders(data)
+      } else {
+        throw new Error("Failed to fetch folders")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load folders. Make sure the backend server is running.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return
 
-    // In a real app, this would be an API call to the Flask backend
-    const newFolder = {
-      id: Math.max(0, ...folders.map((f) => f.id)) + 1,
-      name: newFolderName,
-      fileCount: 0,
-      createdAt: new Date().toISOString().split("T")[0],
+    try {
+      setCreating(true)
+      const response = await fetch("http://localhost:5000/api/folders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: newFolderName }),
+      })
+
+      if (response.ok) {
+        const newFolder = await response.json()
+        setNewFolderName("")
+        setIsCreateDialogOpen(false)
+        fetchFolders() // Refresh the list
+
+        toast({
+          title: "Folder created",
+          description: `Folder "${newFolderName}" has been created successfully.`,
+        })
+      } else {
+        throw new Error("Failed to create folder")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create folder. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setCreating(false)
     }
-
-    setFolders([...folders, newFolder])
-    setNewFolderName("")
-    setIsCreateDialogOpen(false)
-
-    toast({
-      title: "Folder created",
-      description: `Folder "${newFolderName}" has been created successfully.`,
-    })
   }
 
-  const handleEditFolder = () => {
+  const handleEditFolder = async () => {
     if (!editingFolder || !editingFolder.name.trim()) return
 
-    // In a real app, this would be an API call to the Flask backend
-    setFolders(
-      folders.map((folder) => (folder.id === editingFolder.id ? { ...folder, name: editingFolder.name } : folder)),
-    )
+    try {
+      setUpdating(true)
+      const response = await fetch(`http://localhost:5000/api/folders/${editingFolder.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: editingFolder.name }),
+      })
 
-    setIsEditDialogOpen(false)
+      if (response.ok) {
+        setIsEditDialogOpen(false)
+        fetchFolders() // Refresh the list
 
-    toast({
-      title: "Folder updated",
-      description: `Folder has been renamed to "${editingFolder.name}".`,
-    })
+        toast({
+          title: "Folder updated",
+          description: `Folder has been renamed to "${editingFolder.name}".`,
+        })
+      } else {
+        throw new Error("Failed to update folder")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update folder. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUpdating(false)
+    }
   }
 
-  const handleDeleteFolder = () => {
+  const handleDeleteFolder = async () => {
     if (folderToDelete === null) return
 
-    // In a real app, this would be an API call to the Flask backend
-    setFolders(folders.filter((folder) => folder.id !== folderToDelete))
-    setIsDeleteDialogOpen(false)
+    try {
+      setDeleting(true)
+      const response = await fetch(`http://localhost:5000/api/folders/${folderToDelete}`, {
+        method: "DELETE",
+      })
 
-    toast({
-      title: "Folder deleted",
-      description: "The folder and its contents have been deleted.",
-      variant: "destructive",
-    })
+      if (response.ok) {
+        setIsDeleteDialogOpen(false)
+        fetchFolders() // Refresh the list
+
+        toast({
+          title: "Folder deleted",
+          description: "The folder and its contents have been deleted.",
+          variant: "destructive",
+        })
+      } else {
+        throw new Error("Failed to delete folder")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete folder. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-10 flex items-center justify-center">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading folders...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -115,10 +209,13 @@ export default function FoldersPage() {
               />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={creating}>
                 Cancel
               </Button>
-              <Button onClick={handleCreateFolder}>Create Folder</Button>
+              <Button onClick={handleCreateFolder} disabled={creating}>
+                {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Folder
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -129,14 +226,14 @@ export default function FoldersPage() {
           <Card key={folder.id}>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Folder className="mr-2 h-5 w-5 text-slate-500" />
+                <FolderPlus className="mr-2 h-5 w-5 text-slate-500" />
                 {folder.name}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-sm text-slate-500">
-                <p>{folder.fileCount} files</p>
-                <p>Created: {folder.createdAt}</p>
+                <p>{folder.file_count} files</p>
+                <p>Created: {folder.created_at}</p>
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">
@@ -171,10 +268,13 @@ export default function FoldersPage() {
                       />
                     </div>
                     <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                      <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={updating}>
                         Cancel
                       </Button>
-                      <Button onClick={handleEditFolder}>Save Changes</Button>
+                      <Button onClick={handleEditFolder} disabled={updating}>
+                        {updating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save Changes
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -205,10 +305,11 @@ export default function FoldersPage() {
                       </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                      <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={deleting}>
                         Cancel
                       </Button>
-                      <Button variant="destructive" onClick={handleDeleteFolder}>
+                      <Button variant="destructive" onClick={handleDeleteFolder} disabled={deleting}>
+                        {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Delete Folder
                       </Button>
                     </DialogFooter>
@@ -222,6 +323,19 @@ export default function FoldersPage() {
           </Card>
         ))}
       </div>
+
+      {folders.length === 0 && (
+        <div className="text-center py-12 bg-slate-50 rounded-lg">
+          <FolderPlus className="h-12 w-12 mx-auto mb-4 text-slate-400" />
+          <h3 className="text-lg font-medium mb-2">No folders yet</h3>
+          <p className="text-slate-500 mb-4">Create your first folder to organize your 3D artifacts</p>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <FolderPlus className="mr-2 h-4 w-4" />
+            Create Folder
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
+</merged_code>

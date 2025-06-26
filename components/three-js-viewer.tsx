@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { OrbitControls, Environment } from "@react-three/drei"
+import { OrbitControls, Environment, Html, useProgress } from "@react-three/drei"
 import * as THREE from "three"
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js"
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js"
@@ -17,6 +17,60 @@ interface ThreeJsViewerProps {
   selectedFace: number | null
   showTriangles?: boolean
   onResetCamera?: () => void
+}
+
+// Loading component
+function Loader() {
+  const { progress } = useProgress()
+  return (
+    <Html center>
+      <div className="flex flex-col items-center justify-center p-4 bg-white rounded-lg shadow-lg">
+        <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+        <div className="text-lg font-medium text-gray-700 mb-2">Loading 3D Model</div>
+        <div className="text-sm text-gray-500 mb-3">{Math.round(progress)}% complete</div>
+        <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-blue-600 transition-all duration-300 ease-out"
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
+      </div>
+    </Html>
+  )
+}
+
+// Auto-fit camera to model
+function CameraController({ target }: { target: THREE.Object3D | null }) {
+  const { camera, controls } = useThree()
+
+  useEffect(() => {
+    if (target && controls) {
+      // Calculate bounding box
+      const box = new THREE.Box3().setFromObject(target)
+      const size = box.getSize(new THREE.Vector3())
+      const center = box.getCenter(new THREE.Vector3())
+
+      // Calculate optimal camera distance
+      const maxDim = Math.max(size.x, size.y, size.z)
+      const fov = camera.fov * (Math.PI / 180)
+      const distance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.2 // Add 20% padding
+
+      // Position camera
+      const direction = new THREE.Vector3(1, 1, 1).normalize()
+      const newPosition = center.clone().add(direction.multiplyScalar(distance))
+
+      camera.position.copy(newPosition)
+      camera.lookAt(center)
+
+      // Update controls
+      if (controls.target) {
+        controls.target.copy(center)
+      }
+      controls.update()
+    }
+  }, [target, camera, controls])
+
+  return null
 }
 
 function ActualModel({
@@ -35,9 +89,11 @@ function ActualModel({
   showTriangles?: boolean
 }) {
   const groupRef = useRef<THREE.Group>(null!)
+  const originalModelRef = useRef<THREE.Group>(null!)
   const { raycaster, camera, gl } = useThree()
   const [hoveredFace, setHoveredFace] = useState<number | null>(null)
   const [loadedModel, setLoadedModel] = useState<THREE.Object3D | null>(null)
+  const [originalModel, setOriginalModel] = useState<THREE.Object3D | null>(null)
   const [faces, setFaces] = useState<THREE.Mesh[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -58,7 +114,10 @@ function ActualModel({
               loader.load(
                 url,
                 (object: THREE.Group) => resolve(object),
-                undefined,
+                (progress: any) => {
+                  // Progress callback
+                  console.log("Loading progress:", (progress.loaded / progress.total) * 100 + "%")
+                },
                 (error: any) => reject(error),
               )
             })
@@ -70,7 +129,9 @@ function ActualModel({
               loader.load(
                 url,
                 (geometry: THREE.BufferGeometry) => resolve(geometry),
-                undefined,
+                (progress: any) => {
+                  console.log("Loading progress:", (progress.loaded / progress.total) * 100 + "%")
+                },
                 (error: any) => reject(error),
               )
             })
@@ -83,7 +144,9 @@ function ActualModel({
               loader.load(
                 url,
                 (geometry: THREE.BufferGeometry) => resolve(geometry),
-                undefined,
+                (progress: any) => {
+                  console.log("Loading progress:", (progress.loaded / progress.total) * 100 + "%")
+                },
                 (error: any) => reject(error),
               )
             })
@@ -97,7 +160,9 @@ function ActualModel({
               loader.load(
                 url,
                 (gltf: any) => resolve(gltf),
-                undefined,
+                (progress: any) => {
+                  console.log("Loading progress:", (progress.loaded / progress.total) * 100 + "%")
+                },
                 (error: any) => reject(error),
               )
             })
@@ -108,17 +173,25 @@ function ActualModel({
             throw new Error(`Unsupported file format: ${extension}`)
         }
 
-        // Center and scale the model
+        // Create original model (with textures/materials preserved)
+        const originalModelClone = loadedObject.clone()
+
+        // Calculate bounding box for proper scaling
         const box = new THREE.Box3().setFromObject(loadedObject)
         const center = box.getCenter(new THREE.Vector3())
         const size = box.getSize(new THREE.Vector3())
         const maxDim = Math.max(size.x, size.y, size.z)
-        const scale = 2 / maxDim
+        const scale = 3 / maxDim // Scale to fit in a 3-unit cube
 
+        // Center and scale both models
         loadedObject.position.sub(center)
         loadedObject.scale.setScalar(scale)
 
+        originalModelClone.position.sub(center)
+        originalModelClone.scale.setScalar(scale)
+
         setLoadedModel(loadedObject)
+        setOriginalModel(originalModelClone)
 
         // Extract faces from the loaded model
         extractFacesFromModel(loadedObject)
@@ -157,8 +230,12 @@ function ActualModel({
     headMesh.position.set(0, 1.2, 0)
     group.add(headMesh)
 
+    const originalClone = group.clone()
+
     setLoadedModel(group)
+    setOriginalModel(originalClone)
     extractFacesFromModel(group)
+    setLoading(false)
   }
 
   const extractFacesFromModel = (model: THREE.Object3D) => {
@@ -168,14 +245,17 @@ function ActualModel({
     model.traverse((child) => {
       if (child instanceof THREE.Mesh && child.geometry) {
         const geometry = child.geometry
-        const material = child.material as THREE.Material
 
-        if (geometry.index) {
+        // Limit face extraction for performance on large models
+        const maxFaces = 1000 // Limit to 1000 faces for performance
+        let currentFaces = 0
+
+        if (geometry.index && currentFaces < maxFaces) {
           // Indexed geometry
           const indices = geometry.index.array
           const positions = geometry.attributes.position
 
-          for (let i = 0; i < indices.length; i += 3) {
+          for (let i = 0; i < indices.length && currentFaces < maxFaces; i += 3) {
             // Create individual triangle/face
             const faceGeometry = new THREE.BufferGeometry()
             const faceVertices: number[] = []
@@ -192,7 +272,7 @@ function ActualModel({
               color: getFaceColor(faceIndex),
               side: THREE.DoubleSide,
               transparent: true,
-              opacity: 0.9,
+              opacity: 0.8,
             })
 
             const faceMesh = new THREE.Mesh(faceGeometry, faceMaterial)
@@ -220,55 +300,7 @@ function ActualModel({
 
             extractedFaces.push(faceMesh)
             faceIndex++
-          }
-        } else {
-          // Non-indexed geometry
-          const positions = geometry.attributes.position
-          const vertexCount = positions.count
-
-          for (let i = 0; i < vertexCount; i += 3) {
-            const faceGeometry = new THREE.BufferGeometry()
-            const faceVertices: number[] = []
-
-            for (let j = 0; j < 3; j++) {
-              faceVertices.push(positions.getX(i + j), positions.getY(i + j), positions.getZ(i + j))
-            }
-
-            faceGeometry.setAttribute("position", new THREE.Float32BufferAttribute(faceVertices, 3))
-            faceGeometry.computeVertexNormals()
-
-            const faceMaterial = new THREE.MeshStandardMaterial({
-              color: getFaceColor(faceIndex),
-              side: THREE.DoubleSide,
-              transparent: true,
-              opacity: 0.9,
-            })
-
-            const faceMesh = new THREE.Mesh(faceGeometry, faceMaterial)
-            faceMesh.position.copy(child.position)
-            faceMesh.rotation.copy(child.rotation)
-            faceMesh.scale.copy(child.scale)
-
-            // Calculate face center
-            const center = new THREE.Vector3()
-            for (let k = 0; k < faceVertices.length; k += 3) {
-              center.add(new THREE.Vector3(faceVertices[k], faceVertices[k + 1], faceVertices[k + 2]))
-            }
-            center.divideScalar(3)
-
-            faceMesh.userData = {
-              faceIndex,
-              originalPosition: child.position.clone(),
-              faceCenter: center,
-              parentTransform: {
-                position: child.position.clone(),
-                rotation: child.rotation.clone(),
-                scale: child.scale.clone(),
-              },
-            }
-
-            extractedFaces.push(faceMesh)
-            faceIndex++
+            currentFaces++
           }
         }
       }
@@ -371,19 +403,29 @@ function ActualModel({
   }, [faces, showTriangles])
 
   if (loading) {
-    return (
-      <mesh>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="#cccccc" transparent opacity={0.5} />
-      </mesh>
-    )
+    return <Loader />
   }
 
   return (
-    <group ref={groupRef}>
-      {/* Show original model in triangle view or as background */}
-      {loadedModel && <primitive object={loadedModel} visible={showTriangles || explodeAmount === 0} />}
-    </group>
+    <>
+      {/* Auto-fit camera to model */}
+      <CameraController target={originalModel} />
+
+      <group ref={groupRef}>
+        {/* Original model with textures (always visible but with reduced opacity in face view) */}
+        {originalModel && (
+          <group ref={originalModelRef}>
+            <primitive object={originalModel} visible={true} />
+            {!showTriangles && (
+              <mesh>
+                <boxGeometry args={[0, 0, 0]} />
+                <meshBasicMaterial transparent opacity={0.3} />
+              </mesh>
+            )}
+          </group>
+        )}
+      </group>
+    </>
   )
 }
 
@@ -408,10 +450,11 @@ export default function ThreeJsViewer({
   }
 
   return (
-    <Canvas camera={{ position: [4, 4, 4], fov: 50 }}>
+    <Canvas camera={{ position: [5, 5, 5], fov: 50, near: 0.1, far: 1000 }} gl={{ antialias: true, alpha: true }}>
       <ambientLight intensity={0.6} />
       <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} castShadow />
       <pointLight position={[-10, -10, -10]} intensity={0.3} />
+      <directionalLight position={[0, 10, 5]} intensity={0.5} />
 
       <ActualModel
         url={modelUrl}
@@ -422,7 +465,14 @@ export default function ThreeJsViewer({
         showTriangles={showTriangles}
       />
 
-      <OrbitControls ref={controlsRef} makeDefault />
+      <OrbitControls
+        ref={controlsRef}
+        makeDefault
+        enableDamping={true}
+        dampingFactor={0.05}
+        maxDistance={50}
+        minDistance={0.5}
+      />
       <Environment preset="studio" />
     </Canvas>
   )
