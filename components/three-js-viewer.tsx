@@ -1,15 +1,13 @@
 "use client"
 
 import { useRef, useState, useEffect } from "react"
-import { Canvas, useThree, useLoader } from "@react-three/fiber"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { OrbitControls, Environment } from "@react-three/drei"
 import * as THREE from "three"
-
-// Use useLoader hook instead of direct imports
-// We'll modify the loading logic to use useLoader
-import { OBJLoader } from "three/addons/loaders/OBJLoader.js"
-import { PLYLoader } from "three/addons/loaders/PLYLoader.js"
-import { STLLoader } from "three/addons/loaders/STLLoader.js"
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js"
+import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js"
+import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js"
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
 
 interface ThreeJsViewerProps {
   modelUrl: string
@@ -18,15 +16,16 @@ interface ThreeJsViewerProps {
   onFaceSelect: (faceIndex: number) => void
   selectedFace: number | null
   showTriangles?: boolean
+  onResetCamera?: () => void
 }
 
-function Model({
+function ActualModel({
   url,
   explodeAmount,
   colorsByFace,
   onFaceSelect,
   selectedFace,
-  showTriangles = false, // New prop for triangle/face toggle
+  showTriangles = false,
 }: {
   url: string
   explodeAmount: number
@@ -35,273 +34,386 @@ function Model({
   selectedFace: number | null
   showTriangles?: boolean
 }) {
-  const [model, setModel] = useState(null)
-  const [originalFaces, setOriginalFaces] = useState([])
-  const [triangulatedFaces, setTriangulatedFaces] = useState([])
+  const groupRef = useRef<THREE.Group>(null!)
+  const { raycaster, camera, gl } = useThree()
+  const [hoveredFace, setHoveredFace] = useState<number | null>(null)
+  const [loadedModel, setLoadedModel] = useState<THREE.Object3D | null>(null)
+  const [faces, setFaces] = useState<THREE.Mesh[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const modelRef = useRef()
-  const { scene } = useThree()
-  const object = useLoader(OBJLoader, url)
 
+  // Load the actual 3D model
   useEffect(() => {
     const loadModel = async () => {
       try {
         setLoading(true)
-        console.log("Loading model from URL:", url)
 
-        const fileExtension = url.split(".").pop().toLowerCase()
-        let loadedModel
-        let preservedFaces = []
+        const extension = url.split(".").pop()?.toLowerCase()
+        let loader: any
+        let loadedObject: THREE.Object3D
 
-        if (fileExtension === "obj") {
-          // Use useLoader hook
-          loadedModel = object
+        switch (extension) {
+          case "obj":
+            loader = new OBJLoader()
+            loadedObject = await new Promise<THREE.Group>((resolve, reject) => {
+              loader.load(
+                url,
+                (object: THREE.Group) => resolve(object),
+                undefined,
+                (error: any) => reject(error),
+              )
+            })
+            break
 
-          // Extract original faces from OBJ (quads and polygons)
-          loadedModel.traverse((child) => {
-            if (child instanceof THREE.Mesh && child.geometry) {
-              preservedFaces = extractOriginalFaces(child.geometry)
-            }
-          })
-        } else if (fileExtension === "ply" || fileExtension === "stl") {
-          // PLY and STL are typically already triangulated
-          const loader = fileExtension === "ply" ? new PLYLoader() : new STLLoader()
-          const geometry = await new Promise((resolve, reject) => {
-            loader.load(url, (geo) => resolve(geo), undefined, reject)
-          })
+          case "ply":
+            loader = new PLYLoader()
+            const plyGeometry = await new Promise<THREE.BufferGeometry>((resolve, reject) => {
+              loader.load(
+                url,
+                (geometry: THREE.BufferGeometry) => resolve(geometry),
+                undefined,
+                (error: any) => reject(error),
+              )
+            })
+            loadedObject = new THREE.Mesh(plyGeometry, new THREE.MeshStandardMaterial({ color: 0x888888 }))
+            break
 
-          const material = new THREE.MeshStandardMaterial({
-            color: 0x6e56cf,
-            side: THREE.DoubleSide,
-          })
-          loadedModel = new THREE.Mesh(geometry, material)
+          case "stl":
+            loader = new STLLoader()
+            const stlGeometry = await new Promise<THREE.BufferGeometry>((resolve, reject) => {
+              loader.load(
+                url,
+                (geometry: THREE.BufferGeometry) => resolve(geometry),
+                undefined,
+                (error: any) => reject(error),
+              )
+            })
+            loadedObject = new THREE.Mesh(stlGeometry, new THREE.MeshStandardMaterial({ color: 0x888888 }))
+            break
 
-          // For triangulated formats, create face groups
-          preservedFaces = groupTrianglesIntoFaces(geometry)
+          case "glb":
+          case "gltf":
+            loader = new GLTFLoader()
+            const gltf = await new Promise<any>((resolve, reject) => {
+              loader.load(
+                url,
+                (gltf: any) => resolve(gltf),
+                undefined,
+                (error: any) => reject(error),
+              )
+            })
+            loadedObject = gltf.scene
+            break
+
+          default:
+            throw new Error(`Unsupported file format: ${extension}`)
         }
 
-        // Create both face-based and triangle-based representations
-        const faceBasedMeshes = createFaceBasedMeshes(preservedFaces)
-        const triangleBasedMeshes = createTriangleBasedMeshes(loadedModel)
+        // Center and scale the model
+        const box = new THREE.Box3().setFromObject(loadedObject)
+        const center = box.getCenter(new THREE.Vector3())
+        const size = box.getSize(new THREE.Vector3())
+        const maxDim = Math.max(size.x, size.y, size.z)
+        const scale = 2 / maxDim
 
-        setOriginalFaces(faceBasedMeshes)
-        setTriangulatedFaces(triangleBasedMeshes)
+        loadedObject.position.sub(center)
+        loadedObject.scale.setScalar(scale)
 
-        // Add appropriate meshes to scene based on current mode
-        const meshesToAdd = showTriangles ? triangleBasedMeshes : faceBasedMeshes
-        meshesToAdd.forEach((mesh) => scene.add(mesh))
+        setLoadedModel(loadedObject)
 
-        setModel(loadedModel)
+        // Extract faces from the loaded model
+        extractFacesFromModel(loadedObject)
+
         setLoading(false)
       } catch (err) {
         console.error("Error loading model:", err)
-        setError(err.message)
         setLoading(false)
+        // Create a fallback model
+        createFallbackModel()
       }
     }
 
-    if (!object) {
-      loadModel()
-    } else {
-      setModel(object)
-      object.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.geometry) {
-          setOriginalFaces(extractOriginalFaces(child.geometry))
-          setTriangulatedFaces(groupTrianglesIntoFaces(child.geometry))
+    loadModel()
+  }, [url])
+
+  const createFallbackModel = () => {
+    // Create a simple cultural artifact as fallback
+    const group = new THREE.Group()
+
+    // Base
+    const baseGeometry = new THREE.BoxGeometry(2, 0.3, 2)
+    const baseMesh = new THREE.Mesh(baseGeometry, new THREE.MeshStandardMaterial({ color: 0x8b4513 }))
+    baseMesh.position.set(0, -1.5, 0)
+    group.add(baseMesh)
+
+    // Body
+    const bodyGeometry = new THREE.CylinderGeometry(0.8, 1, 2, 16)
+    const bodyMesh = new THREE.Mesh(bodyGeometry, new THREE.MeshStandardMaterial({ color: 0xd2691e }))
+    bodyMesh.position.set(0, -0.3, 0)
+    group.add(bodyMesh)
+
+    // Head
+    const headGeometry = new THREE.SphereGeometry(0.6, 16, 16)
+    const headMesh = new THREE.Mesh(headGeometry, new THREE.MeshStandardMaterial({ color: 0xcd853f }))
+    headMesh.position.set(0, 1.2, 0)
+    group.add(headMesh)
+
+    setLoadedModel(group)
+    extractFacesFromModel(group)
+  }
+
+  const extractFacesFromModel = (model: THREE.Object3D) => {
+    const extractedFaces: THREE.Mesh[] = []
+    let faceIndex = 0
+
+    model.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.geometry) {
+        const geometry = child.geometry
+        const material = child.material as THREE.Material
+
+        if (geometry.index) {
+          // Indexed geometry
+          const indices = geometry.index.array
+          const positions = geometry.attributes.position
+
+          for (let i = 0; i < indices.length; i += 3) {
+            // Create individual triangle/face
+            const faceGeometry = new THREE.BufferGeometry()
+            const faceVertices: number[] = []
+
+            for (let j = 0; j < 3; j++) {
+              const vertexIndex = indices[i + j]
+              faceVertices.push(positions.getX(vertexIndex), positions.getY(vertexIndex), positions.getZ(vertexIndex))
+            }
+
+            faceGeometry.setAttribute("position", new THREE.Float32BufferAttribute(faceVertices, 3))
+            faceGeometry.computeVertexNormals()
+
+            const faceMaterial = new THREE.MeshStandardMaterial({
+              color: getFaceColor(faceIndex),
+              side: THREE.DoubleSide,
+              transparent: true,
+              opacity: 0.9,
+            })
+
+            const faceMesh = new THREE.Mesh(faceGeometry, faceMaterial)
+            faceMesh.position.copy(child.position)
+            faceMesh.rotation.copy(child.rotation)
+            faceMesh.scale.copy(child.scale)
+
+            // Calculate face center for explosion
+            const center = new THREE.Vector3()
+            for (let k = 0; k < faceVertices.length; k += 3) {
+              center.add(new THREE.Vector3(faceVertices[k], faceVertices[k + 1], faceVertices[k + 2]))
+            }
+            center.divideScalar(3)
+
+            faceMesh.userData = {
+              faceIndex,
+              originalPosition: child.position.clone(),
+              faceCenter: center,
+              parentTransform: {
+                position: child.position.clone(),
+                rotation: child.rotation.clone(),
+                scale: child.scale.clone(),
+              },
+            }
+
+            extractedFaces.push(faceMesh)
+            faceIndex++
+          }
+        } else {
+          // Non-indexed geometry
+          const positions = geometry.attributes.position
+          const vertexCount = positions.count
+
+          for (let i = 0; i < vertexCount; i += 3) {
+            const faceGeometry = new THREE.BufferGeometry()
+            const faceVertices: number[] = []
+
+            for (let j = 0; j < 3; j++) {
+              faceVertices.push(positions.getX(i + j), positions.getY(i + j), positions.getZ(i + j))
+            }
+
+            faceGeometry.setAttribute("position", new THREE.Float32BufferAttribute(faceVertices, 3))
+            faceGeometry.computeVertexNormals()
+
+            const faceMaterial = new THREE.MeshStandardMaterial({
+              color: getFaceColor(faceIndex),
+              side: THREE.DoubleSide,
+              transparent: true,
+              opacity: 0.9,
+            })
+
+            const faceMesh = new THREE.Mesh(faceGeometry, faceMaterial)
+            faceMesh.position.copy(child.position)
+            faceMesh.rotation.copy(child.rotation)
+            faceMesh.scale.copy(child.scale)
+
+            // Calculate face center
+            const center = new THREE.Vector3()
+            for (let k = 0; k < faceVertices.length; k += 3) {
+              center.add(new THREE.Vector3(faceVertices[k], faceVertices[k + 1], faceVertices[k + 2]))
+            }
+            center.divideScalar(3)
+
+            faceMesh.userData = {
+              faceIndex,
+              originalPosition: child.position.clone(),
+              faceCenter: center,
+              parentTransform: {
+                position: child.position.clone(),
+                rotation: child.rotation.clone(),
+                scale: child.scale.clone(),
+              },
+            }
+
+            extractedFaces.push(faceMesh)
+            faceIndex++
+          }
+        }
+      }
+    })
+
+    setFaces(extractedFaces)
+  }
+
+  const getFaceColor = (index: number) => {
+    if (colorsByFace[index]) return colorsByFace[index]
+    if (index === selectedFace) return "#ff6b6b"
+    if (index === hoveredFace) return "#4ecdc4"
+    return "#6e56cf"
+  }
+
+  // Handle mouse interactions
+  useEffect(() => {
+    const handlePointerMove = (event: MouseEvent) => {
+      if (!groupRef.current || showTriangles) return
+
+      const rect = gl.domElement.getBoundingClientRect()
+      const mouse = new THREE.Vector2(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+      )
+
+      raycaster.setFromCamera(mouse, camera)
+      const intersects = raycaster.intersectObjects(faces, true)
+
+      if (intersects.length > 0) {
+        const faceIndex = intersects[0].object.userData?.faceIndex
+        if (typeof faceIndex === "number") {
+          setHoveredFace(faceIndex)
+          gl.domElement.style.cursor = "pointer"
+        }
+      } else {
+        setHoveredFace(null)
+        gl.domElement.style.cursor = "auto"
+      }
+    }
+
+    const handlePointerDown = () => {
+      if (hoveredFace !== null && !showTriangles) {
+        onFaceSelect(hoveredFace)
+      }
+    }
+
+    gl.domElement.addEventListener("pointermove", handlePointerMove)
+    gl.domElement.addEventListener("pointerdown", handlePointerDown)
+
+    return () => {
+      gl.domElement.removeEventListener("pointermove", handlePointerMove)
+      gl.domElement.removeEventListener("pointerdown", handlePointerDown)
+    }
+  }, [camera, gl, hoveredFace, onFaceSelect, raycaster, faces, showTriangles])
+
+  // Animate explosion and update colors
+  useFrame(() => {
+    faces.forEach((face) => {
+      if (face.userData.faceCenter && face.userData.parentTransform) {
+        const { faceCenter, parentTransform } = face.userData
+        const direction = faceCenter.clone().normalize()
+        const explodeOffset = direction.multiplyScalar(explodeAmount)
+        const targetPosition = parentTransform.position.clone().add(explodeOffset)
+
+        face.position.lerp(targetPosition, 0.1)
+      }
+
+      // Update colors
+      if (face.material instanceof THREE.MeshStandardMaterial) {
+        const newColor = getFaceColor(face.userData.faceIndex)
+        face.material.color.setHex(Number.parseInt(newColor.replace("#", "0x")))
+      }
+    })
+  })
+
+  // Add faces to scene
+  useEffect(() => {
+    if (!showTriangles) {
+      faces.forEach((face) => {
+        if (groupRef.current) {
+          groupRef.current.add(face)
         }
       })
-      const meshesToAdd = showTriangles ? triangulatedFaces : originalFaces
-      meshesToAdd.forEach((mesh) => scene.add(mesh))
-      setLoading(false)
+    } else {
+      faces.forEach((face) => {
+        if (groupRef.current) {
+          groupRef.current.remove(face)
+        }
+      })
     }
 
     return () => {
-      // Cleanup
-      originalFaces.forEach((mesh) => scene.remove(mesh))
-      triangulatedFaces.forEach((mesh) => scene.remove(mesh))
-    }
-  }, [url, scene, object])
-
-  // Toggle between face and triangle view
-  useEffect(() => {
-    // Remove current meshes
-    originalFaces.forEach((mesh) => scene.remove(mesh))
-    triangulatedFaces.forEach((mesh) => scene.remove(mesh))
-
-    // Add appropriate meshes
-    const meshesToAdd = showTriangles ? triangulatedFaces : originalFaces
-    meshesToAdd.forEach((mesh) => scene.add(mesh))
-  }, [showTriangles, originalFaces, triangulatedFaces, scene])
-
-  return null
-}
-
-// Helper function to extract original faces from OBJ geometry
-function extractOriginalFaces(geometry) {
-  const faces = []
-  const position = geometry.getAttribute("position")
-  const normal = geometry.getAttribute("normal")
-  const uv = geometry.getAttribute("uv")
-
-  // For OBJ files, we need to reconstruct the original faces
-  // This is a simplified approach - in practice, you'd need to parse the original OBJ data
-  const indices = geometry.index ? Array.from(geometry.index.array) : []
-
-  for (let i = 0; i < indices.length; i += 3) {
-    // Group triangles that share edges to form quads/polygons
-    const face = {
-      vertices: [indices[i], indices[i + 1], indices[i + 2]],
-      type: "triangle",
-    }
-    faces.push(face)
-  }
-
-  return faces
-}
-
-// Helper function to group triangles into logical faces
-function groupTrianglesIntoFaces(geometry) {
-  const faces = []
-  const position = geometry.getAttribute("position")
-  const indices = geometry.index ? Array.from(geometry.index.array) : []
-
-  // Simple grouping - in practice, you'd use more sophisticated algorithms
-  for (let i = 0; i < indices.length; i += 3) {
-    const face = {
-      vertices: [indices[i], indices[i + 1], indices[i + 2]],
-      center: calculateTriangleCenter(position, indices[i], indices[i + 1], indices[i + 2]),
-      normal: calculateTriangleNormal(position, indices[i], indices[i + 1], indices[i + 2]),
-      type: "triangle",
-    }
-    faces.push(face)
-  }
-
-  return faces
-}
-
-// Helper function to create face-based meshes
-function createFaceBasedMeshes(faces) {
-  const meshes = []
-
-  faces.forEach((face, index) => {
-    const geometry = new THREE.BufferGeometry()
-    const vertices = new Float32Array(face.vertices.length * 3)
-
-    // Create geometry for this face
-    face.vertices.forEach((vertexIndex, i) => {
-      vertices[i * 3] = 0 /* vertex x */
-      vertices[i * 3 + 1] = 0 /* vertex y */
-      vertices[i * 3 + 2] = 0 /* vertex z */
-    })
-
-    geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3))
-
-    const material = new THREE.MeshStandardMaterial({
-      color: 0x6e56cf,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.9,
-    })
-
-    const mesh = new THREE.Mesh(geometry, material)
-    mesh.userData = {
-      faceIndex: index,
-      faceType: face.type,
-      center: face.center,
-    }
-
-    meshes.push(mesh)
-  })
-
-  return meshes
-}
-
-// Helper function to create triangle-based meshes
-function createTriangleBasedMeshes(model) {
-  const meshes = []
-
-  if (model && model.geometry) {
-    const geometry = model.geometry
-    const position = geometry.getAttribute("position")
-    const normal = geometry.getAttribute("normal")
-
-    if (geometry.index) {
-      const indices = geometry.index.array
-
-      for (let i = 0; i < indices.length; i += 3) {
-        const v1Index = indices[i]
-        const v2Index = indices[i + 1]
-        const v3Index = indices[i + 2]
-
-        const v1 = new THREE.Vector3(position.getX(v1Index), position.getY(v1Index), position.getZ(v1Index))
-        const v2 = new THREE.Vector3(position.getX(v2Index), position.getY(v2Index), position.getZ(v2Index))
-        const v3 = new THREE.Vector3(position.getX(v3Index), position.getY(v3Index), position.getZ(v3Index))
-
-        const triangleGeometry = new THREE.BufferGeometry()
-        const vertices = new Float32Array([v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z])
-
-        triangleGeometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3))
-        triangleGeometry.computeVertexNormals()
-
-        const material = new THREE.MeshStandardMaterial({
-          color: 0x6e56cf,
-          side: THREE.DoubleSide,
-          transparent: true,
-          opacity: 0.9,
-        })
-
-        const mesh = new THREE.Mesh(triangleGeometry, material)
-        mesh.userData = {
-          faceIndex: i / 3,
-          faceType: "triangle",
-          center: calculateTriangleCenter(position, v1Index, v2Index, v3Index),
+      faces.forEach((face) => {
+        if (groupRef.current) {
+          groupRef.current.remove(face)
         }
-
-        meshes.push(mesh)
-      }
+      })
     }
+  }, [faces, showTriangles])
+
+  if (loading) {
+    return (
+      <mesh>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#cccccc" transparent opacity={0.5} />
+      </mesh>
+    )
   }
 
-  return meshes
+  return (
+    <group ref={groupRef}>
+      {/* Show original model in triangle view or as background */}
+      {loadedModel && <primitive object={loadedModel} visible={showTriangles || explodeAmount === 0} />}
+    </group>
+  )
 }
 
-function calculateTriangleCenter(position, i1, i2, i3) {
-  const center = new THREE.Vector3()
-  center.x = (position.getX(i1) + position.getX(i2) + position.getX(i3)) / 3
-  center.y = (position.getY(i1) + position.getY(i2) + position.getY(i3)) / 3
-  center.z = (position.getZ(i1) + position.getZ(i2) + position.getZ(i3)) / 3
-  return center
-}
-
-function calculateTriangleNormal(position, i1, i2, i3) {
-  const v1 = new THREE.Vector3(position.getX(i1), position.getY(i1), position.getZ(i1))
-  const v2 = new THREE.Vector3(position.getX(i2), position.getY(i2), position.getZ(i2))
-  const v3 = new THREE.Vector3(position.getX(i3), position.getY(i3), position.getZ(i3))
-
-  const normal = new THREE.Vector3()
-  const edge1 = v2.clone().sub(v1)
-  const edge2 = v3.clone().sub(v1)
-  normal.crossVectors(edge1, edge2).normalize()
-
-  return normal
-}
-
-// Update the main component interface
 export default function ThreeJsViewer({
   modelUrl,
   explodeAmount,
   colorsByFace,
   onFaceSelect,
   selectedFace,
-  showTriangles = false, // New prop
+  showTriangles = false,
+  onResetCamera,
 }: ThreeJsViewerProps) {
-  return (
-    <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-      <ambientLight intensity={0.5} />
-      <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} castShadow />
+  const controlsRef = useRef<any>(null)
 
-      <Model
+  const handleResetCamera = () => {
+    if (controlsRef.current) {
+      controlsRef.current.reset()
+    }
+    if (onResetCamera) {
+      onResetCamera()
+    }
+  }
+
+  return (
+    <Canvas camera={{ position: [4, 4, 4], fov: 50 }}>
+      <ambientLight intensity={0.6} />
+      <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} castShadow />
+      <pointLight position={[-10, -10, -10]} intensity={0.3} />
+
+      <ActualModel
         url={modelUrl}
         explodeAmount={explodeAmount}
         colorsByFace={colorsByFace}
@@ -310,7 +422,7 @@ export default function ThreeJsViewer({
         showTriangles={showTriangles}
       />
 
-      <OrbitControls makeDefault />
+      <OrbitControls ref={controlsRef} makeDefault />
       <Environment preset="studio" />
     </Canvas>
   )

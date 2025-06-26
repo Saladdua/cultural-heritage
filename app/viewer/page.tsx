@@ -11,23 +11,23 @@ import { ArrowLeft, Maximize, Minimize, RotateCcw, Layers, Palette, SlidersHoriz
 import Link from "next/link"
 import ThreeJsViewer from "@/components/three-js-viewer"
 
-// Mock data - in a real app, this would come from the Flask API
+// Updated model data with working URLs
 const modelData = {
-  1: { id: 1, name: "Parthenon Fragment.obj", folderId: 1, url: "/assets/3d/duck.glb" },
-  2: { id: 2, name: "Athena Statue.ply", folderId: 1, url: "/assets/3d/duck.glb" },
-  3: { id: 3, name: "Doric Column.stl", folderId: 1, url: "/assets/3d/duck.glb" },
-  4: { id: 4, name: "Ancient Vase.obj", folderId: 1, url: "/assets/3d/duck.glb" },
-  5: { id: 5, name: "Corinthian Capital.ply", folderId: 1, url: "/assets/3d/duck.glb" },
-  6: { id: 6, name: "Augustus Statue.obj", folderId: 2, url: "/assets/3d/duck.glb" },
-  7: { id: 7, name: "Roman Bust.ply", folderId: 2, url: "/assets/3d/duck.glb" },
-  8: { id: 8, name: "Trajan Column Fragment.stl", folderId: 2, url: "/assets/3d/duck.glb" },
-  9: { id: 9, name: "Sphinx Fragment.obj", folderId: 3, url: "/assets/3d/duck.glb" },
-  10: { id: 10, name: "Pharaoh Mask.ply", folderId: 3, url: "/assets/3d/duck.glb" },
-  11: { id: 11, name: "Hieroglyphic Panel.stl", folderId: 3, url: "/assets/3d/duck.glb" },
-  12: { id: 12, name: "Anubis Statue.obj", folderId: 3, url: "/assets/3d/duck.glb" },
-  13: { id: 13, name: "Scarab Artifact.ply", folderId: 3, url: "/assets/3d/duck.glb" },
-  14: { id: 14, name: "Obelisk Fragment.stl", folderId: 3, url: "/assets/3d/duck.glb" },
-  15: { id: 15, name: "Sarcophagus Detail.obj", folderId: 3, url: "/assets/3d/duck.glb" },
+  1: { id: 1, name: "Parthenon Fragment.obj", folderId: 1, url: "/assets/3d/test.obj" },
+  2: { id: 2, name: "Athena Statue.ply", folderId: 1, url: "/assets/3d/test.obj" },
+  3: { id: 3, name: "Doric Column.stl", folderId: 1, url: "/assets/3d/test.obj" },
+  4: { id: 4, name: "Ancient Vase.obj", folderId: 1, url: "/assets/3d/test.obj" },
+  5: { id: 5, name: "Corinthian Capital.ply", folderId: 1, url: "/assets/3d/test.obj" },
+  6: { id: 6, name: "Augustus Statue.obj", folderId: 2, url: "/assets/3d/test.obj" },
+  7: { id: 7, name: "Roman Bust.ply", folderId: 2, url: "/assets/3d/test.obj" },
+  8: { id: 8, name: "Trajan Column Fragment.stl", folderId: 2, url: "/assets/3d/test.obj" },
+  9: { id: 9, name: "Sphinx Fragment.obj", folderId: 3, url: "/assets/3d/test.obj" },
+  10: { id: 10, name: "Pharaoh Mask.ply", folderId: 3, url: "/assets/3d/test.obj" },
+  11: { id: 11, name: "Hieroglyphic Panel.stl", folderId: 3, url: "/assets/3d/test.obj" },
+  12: { id: 12, name: "Anubis Statue.obj", folderId: 3, url: "/assets/3d/test.obj" },
+  13: { id: 13, name: "Scarab Artifact.ply", folderId: 3, url: "/assets/3d/test.obj" },
+  14: { id: 14, name: "Obelisk Fragment.stl", folderId: 3, url: "/assets/3d/test.obj" },
+  15: { id: 15, name: "Sarcophagus Detail.obj", folderId: 3, url: "/assets/3d/test.obj" },
 }
 
 const folderNames = {
@@ -49,6 +49,7 @@ export default function ViewerPage() {
   const [colorsByFace, setColorsByFace] = useState<Record<number, string>>({})
   const viewerContainerRef = useRef<HTMLDivElement>(null)
   const [showTriangles, setShowTriangles] = useState(false)
+  const [resetCameraKey, setResetCameraKey] = useState(0)
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -89,6 +90,10 @@ export default function ViewerPage() {
     setSelectedFace(null)
   }
 
+  const handleResetCamera = () => {
+    setResetCameraKey((prev) => prev + 1)
+  }
+
   if (!model) {
     return (
       <div className="container mx-auto py-10 text-center">
@@ -124,12 +129,14 @@ export default function ViewerPage() {
               style={{ height: "70vh" }}
             >
               <ThreeJsViewer
+                key={resetCameraKey}
                 modelUrl={model.url}
                 explodeAmount={explodeAmount}
                 colorsByFace={colorsByFace}
                 onFaceSelect={handleFaceSelect}
                 selectedFace={selectedFace}
                 showTriangles={showTriangles}
+                onResetCamera={handleResetCamera}
               />
 
               <div className="absolute top-4 right-4 z-10">
@@ -183,8 +190,8 @@ export default function ViewerPage() {
                         </div>
                         <p className="text-xs text-slate-500 mt-2">
                           {showTriangles
-                            ? "Showing triangulated mesh (technical view)"
-                            : "Showing original faces (natural view)"}
+                            ? "Showing original model with triangulated mesh"
+                            : "Showing explodable faces for analysis"}
                         </p>
                       </div>
 
@@ -194,13 +201,13 @@ export default function ViewerPage() {
                           <li>• Left click + drag: Rotate model</li>
                           <li>• Right click + drag: Pan camera</li>
                           <li>• Scroll: Zoom in/out</li>
-                          <li>• Double click: Reset camera</li>
+                          <li>• Click faces: Select for coloring (Face View only)</li>
                         </ul>
                       </div>
 
                       <div>
                         <h3 className="text-sm font-medium mb-2">Reset View</h3>
-                        <Button variant="outline" className="w-full" onClick={() => {}}>
+                        <Button variant="outline" className="w-full" onClick={handleResetCamera}>
                           <RotateCcw className="h-4 w-4 mr-2" /> Reset Camera
                         </Button>
                       </div>
@@ -216,7 +223,7 @@ export default function ViewerPage() {
                       <div>
                         <h3 className="text-sm font-medium mb-2">Explode Model</h3>
                         <p className="text-sm text-slate-600 mb-4">
-                          Separate the model into individual faces to examine internal structures.
+                          Separate the model faces to examine internal structures. Only works in Face View mode.
                         </p>
 
                         <div className="space-y-4">
@@ -228,9 +235,10 @@ export default function ViewerPage() {
                             <Slider
                               value={[explodeAmount]}
                               min={0}
-                              max={2}
+                              max={3}
                               step={0.1}
                               onValueChange={(value) => setExplodeAmount(value[0])}
+                              disabled={showTriangles}
                             />
                           </div>
 
@@ -238,7 +246,7 @@ export default function ViewerPage() {
                             variant="outline"
                             className="w-full"
                             onClick={() => setExplodeAmount(0)}
-                            disabled={explodeAmount === 0}
+                            disabled={explodeAmount === 0 || showTriangles}
                           >
                             Reset Explosion
                           </Button>
@@ -256,7 +264,8 @@ export default function ViewerPage() {
                       <div>
                         <h3 className="text-sm font-medium mb-2">Colorize Faces</h3>
                         <p className="text-sm text-slate-600 mb-4">
-                          Click on a face of the model to select it, then choose a color to apply.
+                          Click on a face of the model to select it, then choose a color to apply. Only works in Face
+                          View mode.
                         </p>
 
                         <div className="space-y-4">
@@ -271,7 +280,11 @@ export default function ViewerPage() {
                               <HexColorPicker color={selectedColor} onChange={setSelectedColor} className="w-full" />
                             </div>
 
-                            <Button className="w-full mb-2" onClick={applyColorToFace} disabled={selectedFace === null}>
+                            <Button
+                              className="w-full mb-2"
+                              onClick={applyColorToFace}
+                              disabled={selectedFace === null || showTriangles}
+                            >
                               Apply Color
                             </Button>
 
