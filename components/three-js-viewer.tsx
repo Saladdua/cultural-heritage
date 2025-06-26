@@ -1,12 +1,15 @@
 "use client"
 
 import { useRef, useState, useEffect } from "react"
-import { Canvas, useThree } from "@react-three/fiber"
+import { Canvas, useThree, useLoader } from "@react-three/fiber"
 import { OrbitControls, Environment } from "@react-three/drei"
 import * as THREE from "three"
-import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader"
-import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader"
-import { STLLoader } from "three/examples/jsm/loaders/STLLoader"
+
+// Use useLoader hook instead of direct imports
+// We'll modify the loading logic to use useLoader
+import { OBJLoader } from "three/addons/loaders/OBJLoader.js"
+import { PLYLoader } from "three/addons/loaders/PLYLoader.js"
+import { STLLoader } from "three/addons/loaders/STLLoader.js"
 
 interface ThreeJsViewerProps {
   modelUrl: string
@@ -39,6 +42,7 @@ function Model({
   const [error, setError] = useState(null)
   const modelRef = useRef()
   const { scene } = useThree()
+  const object = useLoader(OBJLoader, url)
 
   useEffect(() => {
     const loadModel = async () => {
@@ -51,10 +55,8 @@ function Model({
         let preservedFaces = []
 
         if (fileExtension === "obj") {
-          const loader = new OBJLoader()
-          loadedModel = await new Promise((resolve, reject) => {
-            loader.load(url, resolve, undefined, reject)
-          })
+          // Use useLoader hook
+          loadedModel = object
 
           // Extract original faces from OBJ (quads and polygons)
           loadedModel.traverse((child) => {
@@ -99,14 +101,27 @@ function Model({
       }
     }
 
-    loadModel()
+    if (!object) {
+      loadModel()
+    } else {
+      setModel(object)
+      object.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.geometry) {
+          setOriginalFaces(extractOriginalFaces(child.geometry))
+          setTriangulatedFaces(groupTrianglesIntoFaces(child.geometry))
+        }
+      })
+      const meshesToAdd = showTriangles ? triangulatedFaces : originalFaces
+      meshesToAdd.forEach((mesh) => scene.add(mesh))
+      setLoading(false)
+    }
 
     return () => {
       // Cleanup
       originalFaces.forEach((mesh) => scene.remove(mesh))
       triangulatedFaces.forEach((mesh) => scene.remove(mesh))
     }
-  }, [url, scene])
+  }, [url, scene, object])
 
   // Toggle between face and triangle view
   useEffect(() => {
