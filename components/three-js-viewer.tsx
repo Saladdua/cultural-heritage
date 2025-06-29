@@ -402,26 +402,16 @@ function ActualModel({
     }
   }, [faces, showTriangles])
 
-  if (loading) {
-    return <Loader />
-  }
-
   return (
     <>
       {/* Auto-fit camera to model */}
       <CameraController target={originalModel} />
 
       <group ref={groupRef}>
-        {/* Original model with textures (always visible but with reduced opacity in face view) */}
+        {/* Original model with textures (visible only when not exploding and in triangle view) */}
         {originalModel && (
           <group ref={originalModelRef}>
-            <primitive object={originalModel} visible={true} />
-            {!showTriangles && (
-              <mesh>
-                <boxGeometry args={[0, 0, 0]} />
-                <meshBasicMaterial transparent opacity={0.3} />
-              </mesh>
-            )}
+            <primitive object={originalModel} visible={showTriangles || explodeAmount === 0} />
           </group>
         )}
       </group>
