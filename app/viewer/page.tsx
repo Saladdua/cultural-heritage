@@ -7,41 +7,23 @@ import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { HexColorPicker } from "@/components/color-picker"
-import { ArrowLeft, Maximize, Minimize, RotateCcw, Layers, Palette, SlidersHorizontal } from "lucide-react"
+import { ArrowLeft, Maximize, Minimize, RotateCcw, Layers, Palette, SlidersHorizontal, Loader2 } from "lucide-react"
 import Link from "next/link"
 import ThreeJsViewer from "@/components/three-js-viewer"
-
-// Updated model data with working URLs
-const modelData = {
-  1: { id: 1, name: "Parthenon Fragment.obj", folderId: 1, url: "/assets/3d/test.obj" },
-  2: { id: 2, name: "Athena Statue.ply", folderId: 1, url: "/assets/3d/test.obj" },
-  3: { id: 3, name: "Doric Column.stl", folderId: 1, url: "/assets/3d/test.obj" },
-  4: { id: 4, name: "Ancient Vase.obj", folderId: 1, url: "/assets/3d/test.obj" },
-  5: { id: 5, name: "Corinthian Capital.ply", folderId: 1, url: "/assets/3d/test.obj" },
-  6: { id: 6, name: "Augustus Statue.obj", folderId: 2, url: "/assets/3d/test.obj" },
-  7: { id: 7, name: "Roman Bust.ply", folderId: 2, url: "/assets/3d/test.obj" },
-  8: { id: 8, name: "Trajan Column Fragment.stl", folderId: 2, url: "/assets/3d/test.obj" },
-  9: { id: 9, name: "Sphinx Fragment.obj", folderId: 3, url: "/assets/3d/test.obj" },
-  10: { id: 10, name: "Pharaoh Mask.ply", folderId: 3, url: "/assets/3d/test.obj" },
-  11: { id: 11, name: "Hieroglyphic Panel.stl", folderId: 3, url: "/assets/3d/test.obj" },
-  12: { id: 12, name: "Anubis Statue.obj", folderId: 3, url: "/assets/3d/test.obj" },
-  13: { id: 13, name: "Scarab Artifact.ply", folderId: 3, url: "/assets/3d/test.obj" },
-  14: { id: 14, name: "Obelisk Fragment.stl", folderId: 3, url: "/assets/3d/test.obj" },
-  15: { id: 15, name: "Sarcophagus Detail.obj", folderId: 3, url: "/assets/3d/test.obj" },
-}
-
-const folderNames = {
-  1: "Greek Artifacts",
-  2: "Roman Sculptures",
-  3: "Egyptian Collection",
-}
+import { useToast } from "@/hooks/use-toast"
 
 export default function ViewerPage() {
   const searchParams = useSearchParams()
-  const modelId = Number(searchParams.get("model") || "1")
-  const folderId = Number(searchParams.get("folder") || "1")
-  const model = modelData[modelId as keyof typeof modelData]
+  const modelId = Number(searchParams.get("model"))
+  const folderId = Number(searchParams.get("folder"))
 
+  // State for model data
+  const [model, setModel] = useState<any>(null)
+  const [folder, setFolder] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Viewer state
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [explodeAmount, setExplodeAmount] = useState(0)
   const [selectedColor, setSelectedColor] = useState("#6E56CF")
@@ -50,6 +32,53 @@ export default function ViewerPage() {
   const viewerContainerRef = useRef<HTMLDivElement>(null)
   const [showTriangles, setShowTriangles] = useState(false)
   const [resetCameraKey, setResetCameraKey] = useState(0)
+
+  const { toast } = useToast()
+
+  // Fetch model and folder data
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!modelId || !folderId) {
+        setError("Missing model or folder ID")
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+
+        // Fetch model data
+        const modelResponse = await fetch(`http://localhost:5000/api/models/${modelId}`)
+        if (!modelResponse.ok) {
+          throw new Error("Failed to fetch model data")
+        }
+        const modelData = await modelResponse.json()
+
+        // Fetch folder data for folder name
+        const folderResponse = await fetch(`http://localhost:5000/api/folders/${folderId}`)
+        if (!folderResponse.ok) {
+          throw new Error("Failed to fetch folder data")
+        }
+        const folderData = await folderResponse.json()
+
+        setModel(modelData)
+        setFolder(folderData)
+        setError(null)
+      } catch (err) {
+        console.error("Error fetching data:", err)
+        setError("Failed to load model data. Make sure the backend server is running.")
+        toast({
+          title: "Error",
+          description: "Failed to load model data. Make sure the backend server is running.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [modelId, folderId, toast])
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -94,17 +123,33 @@ export default function ViewerPage() {
     setResetCameraKey((prev) => prev + 1)
   }
 
-  if (!model) {
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-8 w-8 animate-spin mb-4" />
+          <p className="text-lg font-medium">Loading 3D model...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error || !model || !folder) {
     return (
       <div className="container mx-auto py-10 text-center">
         <h1 className="text-3xl font-bold mb-4">Model Not Found</h1>
-        <p className="mb-6">The 3D model you're looking for doesn't exist.</p>
+        <p className="mb-6">{error || "The 3D model you're looking for doesn't exist."}</p>
         <Link href="/folders">
           <Button>Back to Folders</Button>
         </Link>
       </div>
     )
   }
+
+  // Construct the model URL for the backend file serving endpoint
+  const modelUrl = `http://localhost:5000/api/models/${modelId}/file`
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -117,7 +162,7 @@ export default function ViewerPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold">{model.name}</h1>
-            <p className="text-slate-600">{folderNames[folderId as keyof typeof folderNames]}</p>
+            <p className="text-slate-600">{folder.name}</p>
           </div>
         </div>
 
@@ -130,7 +175,8 @@ export default function ViewerPage() {
             >
               <ThreeJsViewer
                 key={resetCameraKey}
-                modelUrl={model.url}
+                modelUrl={modelUrl}
+                fileType={model.file_type}
                 explodeAmount={explodeAmount}
                 colorsByFace={colorsByFace}
                 onFaceSelect={handleFaceSelect}
@@ -171,6 +217,24 @@ export default function ViewerPage() {
                   <CardContent className="pt-6">
                     <div className="space-y-4">
                       <div>
+                        <h3 className="text-sm font-medium mb-2">Model Information</h3>
+                        <div className="text-sm text-slate-600 space-y-1">
+                          <p>
+                            <strong>File:</strong> {model.name}
+                          </p>
+                          <p>
+                            <strong>Type:</strong> {model.file_type.toUpperCase()}
+                          </p>
+                          <p>
+                            <strong>Size:</strong> {(model.file_size / (1024 * 1024)).toFixed(1)} MB
+                          </p>
+                          <p>
+                            <strong>Uploaded:</strong> {model.uploaded_at}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
                         <h3 className="text-sm font-medium mb-2">Display Mode</h3>
                         <div className="flex items-center space-x-2">
                           <Button
@@ -207,7 +271,7 @@ export default function ViewerPage() {
 
                       <div>
                         <h3 className="text-sm font-medium mb-2">Reset View</h3>
-                        <Button variant="outline" className="w-full" onClick={handleResetCamera}>
+                        <Button variant="outline" className="w-full bg-transparent" onClick={handleResetCamera}>
                           <RotateCcw className="h-4 w-4 mr-2" /> Reset Camera
                         </Button>
                       </div>
@@ -244,7 +308,7 @@ export default function ViewerPage() {
 
                           <Button
                             variant="outline"
-                            className="w-full"
+                            className="w-full bg-transparent"
                             onClick={() => setExplodeAmount(0)}
                             disabled={explodeAmount === 0 || showTriangles}
                           >
@@ -290,7 +354,7 @@ export default function ViewerPage() {
 
                             <Button
                               variant="outline"
-                              className="w-full"
+                              className="w-full bg-transparent"
                               onClick={resetColors}
                               disabled={Object.keys(colorsByFace).length === 0}
                             >

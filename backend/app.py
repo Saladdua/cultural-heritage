@@ -8,13 +8,18 @@ import json
 from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)
+# Update the CORS configuration to allow your frontend
+CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'obj', 'ply', 'stl', 'glb', 'gltf'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max upload size
+
+# Make sure uploads directory exists
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Ensure upload directory exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -57,6 +62,11 @@ def test_db():
             return jsonify({"status": "error", "message": f"Database query failed: {str(e)}"}), 500
     else:
         return jsonify({"status": "error", "message": "Could not connect to database"}), 500
+
+# Add this debug route to test connection
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "ok", "message": "Backend is running"})
 
 # API Routes
 @app.route('/api/folders', methods=['GET'])
@@ -335,13 +345,14 @@ def upload_model(folder_id):
 
 @app.route('/api/models/<int:model_id>/file', methods=['GET'])
 def download_model(model_id):
+    """Serve the 3D model file for viewing/downloading"""
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "Database connection failed"}), 500
     
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT file_path, name FROM models WHERE id = %s", (model_id,))
+        cursor.execute("SELECT file_path, name, file_type FROM models WHERE id = %s", (model_id,))
         model = cursor.fetchone()
         cursor.close()
         conn.close()
@@ -352,9 +363,28 @@ def download_model(model_id):
         if not os.path.exists(model['file_path']):
             return jsonify({"error": "File not found on disk"}), 404
         
-        return send_file(model['file_path'], as_attachment=True, download_name=model['name'])
+        # Set appropriate MIME type based on file extension
+        mime_types = {
+            'obj': 'text/plain',
+            'ply': 'application/octet-stream',
+            'stl': 'application/octet-stream',
+            'glb': 'model/gltf-binary',
+            'gltf': 'model/gltf+json'
+        }
+        
+        mime_type = mime_types.get(model['file_type'], 'application/octet-stream')
+        
+        # For the 3D viewer, we want to serve the file directly (not as attachment)
+        # The 'as_attachment=False' allows the browser to load it directly
+        return send_file(
+            model['file_path'], 
+            mimetype=mime_type,
+            as_attachment=False,
+            download_name=model['name']
+        )
     except Exception as e:
-        return jsonify({"error": f"Database error: {str(e)}"}), 500
+        print(f"Error serving file: {e}")
+        return jsonify({"error": f"File serving error: {str(e)}"}), 500
 
 @app.route('/api/models/<int:model_id>', methods=['DELETE'])
 def delete_model(model_id):

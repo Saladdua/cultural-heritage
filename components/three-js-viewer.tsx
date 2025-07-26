@@ -11,6 +11,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
 
 interface ThreeJsViewerProps {
   modelUrl: string
+  fileType: string // Add file type as a prop
   explodeAmount: number
   colorsByFace: Record<number, string>
   onFaceSelect: (faceIndex: number) => void
@@ -75,6 +76,7 @@ function CameraController({ target }: { target: THREE.Object3D | null }) {
 
 function ActualModel({
   url,
+  fileType,
   explodeAmount,
   colorsByFace,
   onFaceSelect,
@@ -82,6 +84,7 @@ function ActualModel({
   showTriangles = false,
 }: {
   url: string
+  fileType: string
   explodeAmount: number
   colorsByFace: Record<number, string>
   onFaceSelect: (faceIndex: number) => void
@@ -102,8 +105,10 @@ function ActualModel({
     const loadModel = async () => {
       try {
         setLoading(true)
+        console.log(`Loading model from: ${url}`)
+        console.log(`File type: ${fileType}`)
 
-        const extension = url.split(".").pop()?.toLowerCase()
+        const extension = fileType.toLowerCase()
         let loader: any
         let loadedObject: THREE.Object3D
 
@@ -113,12 +118,17 @@ function ActualModel({
             loadedObject = await new Promise<THREE.Group>((resolve, reject) => {
               loader.load(
                 url,
-                (object: THREE.Group) => resolve(object),
+                (object: THREE.Group) => {
+                  console.log("✅ OBJ loaded successfully")
+                  resolve(object)
+                },
                 (progress: any) => {
-                  // Progress callback
                   console.log("Loading progress:", (progress.loaded / progress.total) * 100 + "%")
                 },
-                (error: any) => reject(error),
+                (error: any) => {
+                  console.error("❌ OBJ loading error:", error)
+                  reject(error)
+                },
               )
             })
             break
@@ -128,11 +138,17 @@ function ActualModel({
             const plyGeometry = await new Promise<THREE.BufferGeometry>((resolve, reject) => {
               loader.load(
                 url,
-                (geometry: THREE.BufferGeometry) => resolve(geometry),
+                (geometry: THREE.BufferGeometry) => {
+                  console.log("✅ PLY loaded successfully")
+                  resolve(geometry)
+                },
                 (progress: any) => {
                   console.log("Loading progress:", (progress.loaded / progress.total) * 100 + "%")
                 },
-                (error: any) => reject(error),
+                (error: any) => {
+                  console.error("❌ PLY loading error:", error)
+                  reject(error)
+                },
               )
             })
             loadedObject = new THREE.Mesh(plyGeometry, new THREE.MeshStandardMaterial({ color: 0x888888 }))
@@ -143,11 +159,17 @@ function ActualModel({
             const stlGeometry = await new Promise<THREE.BufferGeometry>((resolve, reject) => {
               loader.load(
                 url,
-                (geometry: THREE.BufferGeometry) => resolve(geometry),
+                (geometry: THREE.BufferGeometry) => {
+                  console.log("✅ STL loaded successfully")
+                  resolve(geometry)
+                },
                 (progress: any) => {
                   console.log("Loading progress:", (progress.loaded / progress.total) * 100 + "%")
                 },
-                (error: any) => reject(error),
+                (error: any) => {
+                  console.error("❌ STL loading error:", error)
+                  reject(error)
+                },
               )
             })
             loadedObject = new THREE.Mesh(stlGeometry, new THREE.MeshStandardMaterial({ color: 0x888888 }))
@@ -159,17 +181,24 @@ function ActualModel({
             const gltf = await new Promise<any>((resolve, reject) => {
               loader.load(
                 url,
-                (gltf: any) => resolve(gltf),
+                (gltf: any) => {
+                  console.log("✅ GLB/GLTF loaded successfully")
+                  resolve(gltf)
+                },
                 (progress: any) => {
                   console.log("Loading progress:", (progress.loaded / progress.total) * 100 + "%")
                 },
-                (error: any) => reject(error),
+                (error: any) => {
+                  console.error("❌ GLB/GLTF loading error:", error)
+                  reject(error)
+                },
               )
             })
             loadedObject = gltf.scene
             break
 
           default:
+            console.error(`❌ Unsupported file format: ${extension}`)
             throw new Error(`Unsupported file format: ${extension}`)
         }
 
@@ -197,8 +226,9 @@ function ActualModel({
         extractFacesFromModel(loadedObject)
 
         setLoading(false)
+        console.log("✅ Model loading completed successfully")
       } catch (err) {
-        console.error("Error loading model:", err)
+        console.error("❌ Error loading model:", err)
         setLoading(false)
         // Create a fallback model
         createFallbackModel()
@@ -206,9 +236,10 @@ function ActualModel({
     }
 
     loadModel()
-  }, [url])
+  }, [url, fileType])
 
   const createFallbackModel = () => {
+    console.log("Creating fallback model...")
     // Create a simple cultural artifact as fallback
     const group = new THREE.Group()
 
@@ -306,6 +337,7 @@ function ActualModel({
       }
     })
 
+    console.log(`Extracted ${extractedFaces.length} faces from model`)
     setFaces(extractedFaces)
   }
 
@@ -421,6 +453,7 @@ function ActualModel({
 
 export default function ThreeJsViewer({
   modelUrl,
+  fileType,
   explodeAmount,
   colorsByFace,
   onFaceSelect,
@@ -448,6 +481,7 @@ export default function ThreeJsViewer({
 
       <ActualModel
         url={modelUrl}
+        fileType={fileType}
         explodeAmount={explodeAmount}
         colorsByFace={colorsByFace}
         onFaceSelect={onFaceSelect}

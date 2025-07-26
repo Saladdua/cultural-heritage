@@ -1,0 +1,8 @@
+# Minimal requirements for basic evaluation
+trimesh
+open3d
+numpy
+psutil
+mysql-connector-python
+flask
+flask-cors

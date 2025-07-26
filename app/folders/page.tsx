@@ -50,14 +50,22 @@ export default function FoldersPage() {
       const response = await fetch("http://localhost:5000/api/folders")
       if (response.ok) {
         const data = await response.json()
-        setFolders(data)
+        // Transform the data to match our interface
+        const transformedFolders = data.map((folder: any) => ({
+          id: folder.id,
+          name: folder.name,
+          file_count: folder.file_count || 0,
+          created_at: folder.created_at,
+        }))
+        setFolders(transformedFolders)
       } else {
         throw new Error("Failed to fetch folders")
       }
     } catch (error) {
+      console.error("Fetch error:", error)
       toast({
         title: "Error",
-        description: "Failed to load folders. Make sure the backend server is running.",
+        description: "Failed to load folders. Make sure the backend server is running on port 5000.",
         variant: "destructive",
       })
     } finally {
@@ -338,4 +346,3 @@ export default function FoldersPage() {
     </div>
   )
 }
-</merged_code>

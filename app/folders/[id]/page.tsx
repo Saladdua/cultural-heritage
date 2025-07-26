@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,46 +14,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { CuboidIcon as Cube, Upload, ArrowLeft, Trash2, Eye } from "lucide-react"
+import { CuboidIcon as Cube, Upload, ArrowLeft, Trash2, Eye, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
-
-// Mock data - in a real app, this would come from the Flask API
-const folderData = {
-  1: {
-    id: 1,
-    name: "Greek Artifacts",
-    files: [
-      { id: 1, name: "Parthenon Fragment.obj", type: "obj", size: "2.4 MB", uploadedAt: "2023-05-12" },
-      { id: 2, name: "Athena Statue.ply", type: "ply", size: "5.1 MB", uploadedAt: "2023-05-14" },
-      { id: 3, name: "Doric Column.stl", type: "stl", size: "1.8 MB", uploadedAt: "2023-05-15" },
-      { id: 4, name: "Ancient Vase.obj", type: "obj", size: "3.2 MB", uploadedAt: "2023-05-18" },
-      { id: 5, name: "Corinthian Capital.ply", type: "ply", size: "4.5 MB", uploadedAt: "2023-05-20" },
-    ],
-  },
-  2: {
-    id: 2,
-    name: "Roman Sculptures",
-    files: [
-      { id: 6, name: "Augustus Statue.obj", type: "obj", size: "7.2 MB", uploadedAt: "2023-06-16" },
-      { id: 7, name: "Roman Bust.ply", type: "ply", size: "3.8 MB", uploadedAt: "2023-06-18" },
-      { id: 8, name: "Trajan Column Fragment.stl", type: "stl", size: "2.9 MB", uploadedAt: "2023-06-20" },
-    ],
-  },
-  3: {
-    id: 3,
-    name: "Egyptian Collection",
-    files: [
-      { id: 9, name: "Sphinx Fragment.obj", type: "obj", size: "6.3 MB", uploadedAt: "2023-07-23" },
-      { id: 10, name: "Pharaoh Mask.ply", type: "ply", size: "8.1 MB", uploadedAt: "2023-07-25" },
-      { id: 11, name: "Hieroglyphic Panel.stl", type: "stl", size: "4.2 MB", uploadedAt: "2023-07-26" },
-      { id: 12, name: "Anubis Statue.obj", type: "obj", size: "5.7 MB", uploadedAt: "2023-07-28" },
-      { id: 13, name: "Scarab Artifact.ply", type: "ply", size: "1.5 MB", uploadedAt: "2023-07-29" },
-      { id: 14, name: "Obelisk Fragment.stl", type: "stl", size: "3.4 MB", uploadedAt: "2023-07-30" },
-      { id: 15, name: "Sarcophagus Detail.obj", type: "obj", size: "9.2 MB", uploadedAt: "2023-08-01" },
-    ],
-  },
-}
 
 export default function FolderContentsPage() {
   const params = useParams()
@@ -64,49 +27,126 @@ export default function FolderContentsPage() {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [fileToDelete, setFileToDelete] = useState<number | null>(null)
-  const [files, setFiles] = useState(folderData[folderId as keyof typeof folderData]?.files || [])
+  const [files, setFiles] = useState<any[]>([])
   const [dragActive, setDragActive] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
-  const folder = folderData[folderId as keyof typeof folderData]
+  const [folder, setFolder] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
+  // Fetch folder data
+  const fetchFolderData = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`http://localhost:5000/api/folders/${folderId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setFolder(data)
+        setFiles(data.models || [])
+      } else {
+        throw new Error("Failed to fetch folder")
+      }
+    } catch (error) {
+      console.error("Fetch error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load folder. Make sure the backend server is running.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchFolderData()
+  }, [folderId])
+
+  // Fixed file upload function
   const handleFiles = useCallback(
-    (fileList: FileList) => {
-      // In a real app, this would upload the files to the Flask backend
-      const newFiles = Array.from(fileList)
-        .filter((file) => {
-          const extension = file.name.split(".").pop()?.toLowerCase()
-          return extension === "obj" || extension === "ply" || extension === "stl"
-        })
-        .map((file, index) => ({
-          id: Math.max(0, ...files.map((f) => f.id)) + index + 1,
-          name: file.name,
-          type: file.name.split(".").pop() || "",
-          size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-          uploadedAt: new Date().toISOString().split("T")[0],
-        }))
+    async (fileList: FileList) => {
+      console.log("handleFiles called with:", fileList.length, "files")
 
-      if (newFiles.length > 0) {
-        setFiles([...files, ...newFiles])
-        setIsUploadDialogOpen(false)
+      const validFiles = Array.from(fileList).filter((file) => {
+        const extension = file.name.split(".").pop()?.toLowerCase()
+        const isValid =
+          extension === "obj" ||
+          extension === "ply" ||
+          extension === "stl" ||
+          extension === "glb" ||
+          extension === "gltf"
+        console.log(`File ${file.name}: extension=${extension}, valid=${isValid}`)
+        return isValid
+      })
 
+      if (validFiles.length === 0) {
         toast({
-          title: "Files uploaded",
-          description: `${newFiles.length} file(s) have been uploaded successfully.`,
+          title: "Invalid files",
+          description: "Only .obj, .ply, .stl, .glb, and .gltf files are supported.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setUploading(true)
+      let successCount = 0
+      let errorCount = 0
+
+      // Upload each file
+      for (const file of validFiles) {
+        try {
+          console.log(`Uploading ${file.name}...`)
+          const formData = new FormData()
+          formData.append("file", file)
+
+          const response = await fetch(`http://localhost:5000/api/folders/${folderId}/models`, {
+            method: "POST",
+            body: formData,
+          })
+
+          if (response.ok) {
+            successCount++
+            console.log(`✅ Successfully uploaded ${file.name}`)
+          } else {
+            const errorData = await response.json()
+            console.error(`❌ Failed to upload ${file.name}:`, errorData)
+            errorCount++
+          }
+        } catch (error) {
+          console.error(`❌ Upload error for ${file.name}:`, error)
+          errorCount++
+        }
+      }
+
+      setUploading(false)
+
+      // Refresh the folder data
+      await fetchFolderData()
+      setIsUploadDialogOpen(false)
+
+      // Show result toast
+      if (successCount > 0) {
+        toast({
+          title: "Upload completed",
+          description: `${successCount} file(s) uploaded successfully${errorCount > 0 ? `, ${errorCount} failed` : ""}.`,
         })
       } else {
         toast({
-          title: "Invalid files",
-          description: "Only .obj, .ply, and .stl files are supported.",
+          title: "Upload failed",
+          description: "No files were uploaded successfully.",
           variant: "destructive",
         })
       }
     },
-    [files, toast],
+    [folderId, toast],
   )
 
+  // Fixed drag handlers
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    console.log("Drag event:", e.type)
+
     if (e.type === "dragenter" || e.type === "dragover") {
       setDragActive(true)
     } else if (e.type === "dragleave") {
@@ -120,6 +160,9 @@ export default function FolderContentsPage() {
       e.stopPropagation()
       setDragActive(false)
 
+      console.log("Drop event triggered")
+      console.log("Files dropped:", e.dataTransfer.files.length)
+
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         handleFiles(e.dataTransfer.files)
       }
@@ -127,25 +170,66 @@ export default function FolderContentsPage() {
     [handleFiles],
   )
 
-  const handleDeleteFile = useCallback(() => {
+  // Fixed file input handler
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      console.log("File input change triggered")
+      if (e.target.files && e.target.files.length > 0) {
+        console.log("Files selected:", e.target.files.length)
+        handleFiles(e.target.files)
+        // Reset the input so the same file can be selected again
+        e.target.value = ""
+      }
+    },
+    [handleFiles],
+  )
+
+  const handleDeleteFile = useCallback(async () => {
     if (fileToDelete === null) return
 
-    // In a real app, this would be an API call to the Flask backend
-    setFiles(files.filter((file) => file.id !== fileToDelete))
-    setIsDeleteDialogOpen(false)
+    try {
+      const response = await fetch(`http://localhost:5000/api/models/${fileToDelete}`, {
+        method: "DELETE",
+      })
 
-    toast({
-      title: "File deleted",
-      description: "The 3D model has been deleted.",
-      variant: "destructive",
-    })
-  }, [fileToDelete, files, toast])
+      if (!response.ok) {
+        throw new Error("Failed to delete file")
+      }
+
+      await fetchFolderData()
+      setIsDeleteDialogOpen(false)
+
+      toast({
+        title: "File deleted",
+        description: "The 3D model has been deleted.",
+        variant: "destructive",
+      })
+    } catch (error) {
+      console.error("Delete error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete file. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }, [fileToDelete, toast])
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-10 text-center">
+        <div className="flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin mr-2" />
+          <span>Loading folder...</span>
+        </div>
+      </div>
+    )
+  }
 
   if (!folder) {
     return (
       <div className="container mx-auto py-10 text-center">
         <h1 className="text-3xl font-bold mb-4">Folder Not Found</h1>
-        <p className="mb-6">The folder you're looking for doesn't exist.</p>
+        <p className="mb-6">The folder you're looking for doesn't exist or couldn't be loaded.</p>
         <Link href="/folders">
           <Button>Back to Folders</Button>
         </Link>
@@ -172,42 +256,58 @@ export default function FolderContentsPage() {
               Upload Models
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Upload 3D Models</DialogTitle>
               <DialogDescription>
                 Drag and drop your 3D model files (.obj, .ply, .stl) or click to browse.
               </DialogDescription>
             </DialogHeader>
+
+            {/* Fixed upload area */}
             <div
-              className={`border-2 border-dashed rounded-lg p-10 text-center my-4 ${
+              className={`border-2 border-dashed rounded-lg p-8 text-center my-4 transition-colors ${
                 dragActive ? "border-primary bg-primary/5" : "border-gray-300"
-              }`}
+              } ${uploading ? "opacity-50 pointer-events-none" : ""}`}
               onDragEnter={handleDrag}
               onDragOver={handleDrag}
               onDragLeave={handleDrag}
               onDrop={handleDrop}
             >
-              <Cube className="h-12 w-12 mx-auto mb-4 text-slate-400" />
-              <p className="mb-2 font-medium">Drag and drop your 3D models here</p>
-              <p className="text-sm text-slate-500 mb-4">Supported formats: .obj, .ply, .stl</p>
-              <input
-                type="file"
-                id="fileUpload"
-                multiple
-                accept=".obj,.ply,.stl"
-                className="hidden"
-                onChange={(e) => e.target.files && handleFiles(e.target.files)}
-              />
-              <label htmlFor="fileUpload">
-                <Button variant="outline" className="cursor-pointer" tabIndex={-1}>
-                  Browse Files
-                </Button>
-              </label>
+              {uploading ? (
+                <div className="flex flex-col items-center">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                  <p className="font-medium">Uploading files...</p>
+                  <p className="text-sm text-slate-500">Please wait</p>
+                </div>
+              ) : (
+                <>
+                  <Cube className="h-12 w-12 mx-auto mb-4 text-slate-400" />
+                  <p className="mb-2 font-medium">Drag and drop your 3D models here</p>
+                  <p className="text-sm text-slate-500 mb-4">Supported formats: .obj, .ply, .stl, .glb, .gltf</p>
+
+                  {/* Fixed file input */}
+                  <input
+                    type="file"
+                    id="fileUpload"
+                    multiple
+                    accept=".obj,.ply,.stl,.glb,.gltf"
+                    className="hidden"
+                    onChange={handleFileInputChange}
+                    disabled={uploading}
+                  />
+                  <label htmlFor="fileUpload">
+                    <Button variant="outline" className="cursor-pointer bg-transparent" asChild disabled={uploading}>
+                      <span>Browse Files</span>
+                    </Button>
+                  </label>
+                </>
+              )}
             </div>
+
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>
-                Cancel
+              <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)} disabled={uploading}>
+                {uploading ? "Uploading..." : "Cancel"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -250,12 +350,14 @@ export default function FolderContentsPage() {
               {files.map((file) => (
                 <tr key={file.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{file.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 uppercase">{file.type}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{file.size}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{file.uploadedAt}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 uppercase">{file.file_type}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                    {(file.file_size / (1024 * 1024)).toFixed(1)} MB
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{file.uploaded_at}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <Link href={`/viewer?model=${file.id}&folder=${folderId}`}>
-                      <Button variant="outline" size="sm" className="mr-2">
+                      <Button variant="outline" size="sm" className="mr-2 bg-transparent">
                         <Eye className="h-4 w-4 mr-1" /> View
                       </Button>
                     </Link>
