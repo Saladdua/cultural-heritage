@@ -1,10 +1,10 @@
-Web Application For 3D Cultural-Heritage Data Visualization
+# Web Application For 3D Cultural-Heritage Data Visualization
 
 Acknowledgement									
 ________________________________________________________________________
 
-First, I am very grateful for having the opportunity of doing an internship at ICT Lab. It was an amazing time for me to work with hardworking and wonderful people, and also a huge opportunity to improve my knowledge for my future career.
-I want to express my sincere gratitude to MsC. Huynh Vinh Nam, my main supervisor, for providing me with the opportunity to intern under his guidance. His expertise, support, and valuable insightful feedbacks have greatly contributed to my work throughout the internship.
+First, I am very grateful for having the opportunity of doing a research at ICT Lab. It was an amazing time for me to work with hardworking and wonderful people, and also a huge opportunity to improve my knowledge for my future career.
+I want to express my sincere gratitude to MsC. Huynh Vinh Nam, my main supervisor, for providing me with the opportunity to intern under his guidance. His expertise, support, and valuable insightful feedbacks have greatly contributed to my work throughout the research.
 Finally, I want to thank to my family and friends for their help and encouragement, which has motivated me to overcome all the challenges I faced during the journey.
 
 Abstract
