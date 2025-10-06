@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -11,9 +11,12 @@ import { ArrowLeft, Maximize, Minimize, RotateCcw, Layers, Palette, SlidersHoriz
 import Link from "next/link"
 import ThreeJsViewer from "@/components/three-js-viewer"
 import { useToast } from "@/hooks/use-toast"
+import { NavHeader } from "@/components/nav-header"
+import { ProtectedRoute } from "@/components/protected-route"
 
-export default function ViewerPage() {
+function ViewerContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const modelId = Number(searchParams.get("model"))
   const folderId = Number(searchParams.get("folder"))
 
@@ -35,7 +38,12 @@ export default function ViewerPage() {
 
   const { toast } = useToast()
 
-  // Fetch model and folder data
+  // Get auth token
+  const getAuthToken = () => {
+    return localStorage.getItem("auth_token")
+  }
+
+  // Fetch model and folder data with auth
   useEffect(() => {
     const fetchData = async () => {
       if (!modelId || !folderId) {
@@ -46,16 +54,49 @@ export default function ViewerPage() {
 
       try {
         setLoading(true)
+        const token = getAuthToken()
+
+        if (!token) {
+          toast({
+            title: "Authentication required",
+            description: "Please sign in to view models.",
+            variant: "destructive",
+          })
+          router.push("/auth")
+          return
+        }
 
         // Fetch model data
-        const modelResponse = await fetch(`http://localhost:5000/api/models/${modelId}`)
+        const modelResponse = await fetch(`http://localhost:5000/api/models/${modelId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (modelResponse.status === 401) {
+          localStorage.removeItem("auth_token")
+          localStorage.removeItem("user_data")
+          toast({
+            title: "Session expired",
+            description: "Please sign in again.",
+            variant: "destructive",
+          })
+          router.push("/auth")
+          return
+        }
+
         if (!modelResponse.ok) {
           throw new Error("Failed to fetch model data")
         }
         const modelData = await modelResponse.json()
 
         // Fetch folder data for folder name
-        const folderResponse = await fetch(`http://localhost:5000/api/folders/${folderId}`)
+        const folderResponse = await fetch(`http://localhost:5000/api/folders/${folderId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
         if (!folderResponse.ok) {
           throw new Error("Failed to fetch folder data")
         }
@@ -69,7 +110,7 @@ export default function ViewerPage() {
         setError("Failed to load model data. Make sure the backend server is running.")
         toast({
           title: "Error",
-          description: "Failed to load model data. Make sure the backend server is running.",
+          description: "Failed to load model data. Please try again.",
           variant: "destructive",
         })
       } finally {
@@ -78,7 +119,7 @@ export default function ViewerPage() {
     }
 
     fetchData()
-  }, [modelId, folderId, toast])
+  }, [modelId, folderId, toast, router])
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -148,7 +189,7 @@ export default function ViewerPage() {
     )
   }
 
-  // Construct the model URL for the backend file serving endpoint
+  // Construct the model URL with auth token
   const modelUrl = `http://localhost:5000/api/models/${modelId}/file`
 
   return (
@@ -372,5 +413,16 @@ export default function ViewerPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ViewerPage() {
+  return (
+    <>
+      <NavHeader />
+      <ProtectedRoute>
+        <ViewerContent />
+      </ProtectedRoute>
+    </>
   )
 }

@@ -14,11 +14,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { CuboidIcon as Cube, Upload, ArrowLeft, Trash2, Eye, Loader2 } from "lucide-react"
+import { Cable as Cube, Upload, ArrowLeft, Trash2, Eye, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
+import { NavHeader } from "@/components/nav-header"
+import { ProtectedRoute } from "@/components/protected-route"
 
-export default function FolderContentsPage() {
+function FolderContentsContent() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
@@ -34,11 +36,45 @@ export default function FolderContentsPage() {
   const [folder, setFolder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
-  // Fetch folder data
+  // Get auth token
+  const getAuthToken = () => {
+    return localStorage.getItem("auth_token")
+  }
+
+  // Fetch folder data with auth
   const fetchFolderData = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`http://localhost:5000/api/folders/${folderId}`)
+      const token = getAuthToken()
+
+      if (!token) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to view folders.",
+          variant: "destructive",
+        })
+        router.push("/auth")
+        return
+      }
+
+      const response = await fetch(`http://localhost:5000/api/folders/${folderId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.status === 401) {
+        localStorage.removeItem("auth_token")
+        localStorage.removeItem("user_data")
+        toast({
+          title: "Session expired",
+          description: "Please sign in again.",
+          variant: "destructive",
+        })
+        router.push("/auth")
+        return
+      }
+
       if (response.ok) {
         const data = await response.json()
         setFolder(data)
@@ -50,7 +86,7 @@ export default function FolderContentsPage() {
       console.error("Fetch error:", error)
       toast({
         title: "Error",
-        description: "Failed to load folder. Make sure the backend server is running.",
+        description: "Failed to load folder. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -62,10 +98,22 @@ export default function FolderContentsPage() {
     fetchFolderData()
   }, [folderId])
 
-  // Fixed file upload function
+  // Handle file upload with auth
   const handleFiles = useCallback(
     async (fileList: FileList) => {
       console.log("handleFiles called with:", fileList.length, "files")
+
+      const token = getAuthToken()
+
+      if (!token) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to upload files.",
+          variant: "destructive",
+        })
+        router.push("/auth")
+        return
+      }
 
       const validFiles = Array.from(fileList).filter((file) => {
         const extension = file.name.split(".").pop()?.toLowerCase()
@@ -101,8 +149,23 @@ export default function FolderContentsPage() {
 
           const response = await fetch(`http://localhost:5000/api/folders/${folderId}/models`, {
             method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
             body: formData,
           })
+
+          if (response.status === 401) {
+            localStorage.removeItem("auth_token")
+            localStorage.removeItem("user_data")
+            toast({
+              title: "Session expired",
+              description: "Please sign in again.",
+              variant: "destructive",
+            })
+            router.push("/auth")
+            return
+          }
 
           if (response.ok) {
             successCount++
@@ -138,10 +201,10 @@ export default function FolderContentsPage() {
         })
       }
     },
-    [folderId, toast],
+    [folderId, toast, router],
   )
 
-  // Fixed drag handlers
+  // Drag handlers
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -170,27 +233,54 @@ export default function FolderContentsPage() {
     [handleFiles],
   )
 
-  // Fixed file input handler
+  // File input handler
   const handleFileInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       console.log("File input change triggered")
       if (e.target.files && e.target.files.length > 0) {
         console.log("Files selected:", e.target.files.length)
         handleFiles(e.target.files)
-        // Reset the input so the same file can be selected again
         e.target.value = ""
       }
     },
     [handleFiles],
   )
 
+  // Delete file with auth
   const handleDeleteFile = useCallback(async () => {
     if (fileToDelete === null) return
+
+    const token = getAuthToken()
+
+    if (!token) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to delete files.",
+        variant: "destructive",
+      })
+      router.push("/auth")
+      return
+    }
 
     try {
       const response = await fetch(`http://localhost:5000/api/models/${fileToDelete}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
+
+      if (response.status === 401) {
+        localStorage.removeItem("auth_token")
+        localStorage.removeItem("user_data")
+        toast({
+          title: "Session expired",
+          description: "Please sign in again.",
+          variant: "destructive",
+        })
+        router.push("/auth")
+        return
+      }
 
       if (!response.ok) {
         throw new Error("Failed to delete file")
@@ -212,7 +302,7 @@ export default function FolderContentsPage() {
         variant: "destructive",
       })
     }
-  }, [fileToDelete, toast])
+  }, [fileToDelete, toast, router])
 
   if (loading) {
     return (
@@ -260,11 +350,10 @@ export default function FolderContentsPage() {
             <DialogHeader>
               <DialogTitle>Upload 3D Models</DialogTitle>
               <DialogDescription>
-                Drag and drop your 3D model files (.obj, .ply, .stl) or click to browse.
+                Drag and drop your 3D model files (.obj, .ply, .stl, .glb, .gltf) or click to browse.
               </DialogDescription>
             </DialogHeader>
 
-            {/* Fixed upload area */}
             <div
               className={`border-2 border-dashed rounded-lg p-8 text-center my-4 transition-colors ${
                 dragActive ? "border-primary bg-primary/5" : "border-gray-300"
@@ -286,7 +375,6 @@ export default function FolderContentsPage() {
                   <p className="mb-2 font-medium">Drag and drop your 3D models here</p>
                   <p className="text-sm text-slate-500 mb-4">Supported formats: .obj, .ply, .stl, .glb, .gltf</p>
 
-                  {/* Fixed file input */}
                   <input
                     type="file"
                     id="fileUpload"
@@ -399,5 +487,16 @@ export default function FolderContentsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function FolderContentsPage() {
+  return (
+    <>
+      <NavHeader />
+      <ProtectedRoute>
+        <FolderContentsContent />
+      </ProtectedRoute>
+    </>
   )
 }
