@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label"
 import { Trash2, FolderPlus, Edit, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { NavHeader } from "@/components/nav-header"
+import { ProtectedRoute } from "@/components/protected-route"
 
 interface FolderType {
   id: number
@@ -25,7 +27,7 @@ interface FolderType {
   created_at: string
 }
 
-export default function FoldersPage() {
+function FoldersContent() {
   const [folders, setFolders] = useState<FolderType[]>([])
   const [loading, setLoading] = useState(true)
   const [newFolderName, setNewFolderName] = useState("")
@@ -39,7 +41,10 @@ export default function FoldersPage() {
   const [deleting, setDeleting] = useState(false)
   const { toast } = useToast()
 
-  // Fetch folders from API
+  const getAuthToken = () => {
+    return localStorage.getItem("auth_token")
+  }
+
   useEffect(() => {
     fetchFolders()
   }, [])
@@ -47,10 +52,16 @@ export default function FoldersPage() {
   const fetchFolders = async () => {
     try {
       setLoading(true)
-      const response = await fetch("http://localhost:5000/api/folders")
+      const token = getAuthToken()
+
+      const response = await fetch("http://localhost:5000/api/folders", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
       if (response.ok) {
         const data = await response.json()
-        // Transform the data to match our interface
         const transformedFolders = data.map((folder: any) => ({
           id: folder.id,
           name: folder.name,
@@ -65,7 +76,7 @@ export default function FoldersPage() {
       console.error("Fetch error:", error)
       toast({
         title: "Error",
-        description: "Failed to load folders. Make sure the backend server is running on port 5000.",
+        description: "Failed to load folders. Make sure you're signed in.",
         variant: "destructive",
       })
     } finally {
@@ -78,19 +89,21 @@ export default function FoldersPage() {
 
     try {
       setCreating(true)
+      const token = getAuthToken()
+
       const response = await fetch("http://localhost:5000/api/folders", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ name: newFolderName }),
       })
 
       if (response.ok) {
-        const newFolder = await response.json()
         setNewFolderName("")
         setIsCreateDialogOpen(false)
-        fetchFolders() // Refresh the list
+        fetchFolders()
 
         toast({
           title: "Folder created",
@@ -115,17 +128,20 @@ export default function FoldersPage() {
 
     try {
       setUpdating(true)
+      const token = getAuthToken()
+
       const response = await fetch(`http://localhost:5000/api/folders/${editingFolder.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ name: editingFolder.name }),
       })
 
       if (response.ok) {
         setIsEditDialogOpen(false)
-        fetchFolders() // Refresh the list
+        fetchFolders()
 
         toast({
           title: "Folder updated",
@@ -150,13 +166,18 @@ export default function FoldersPage() {
 
     try {
       setDeleting(true)
+      const token = getAuthToken()
+
       const response = await fetch(`http://localhost:5000/api/folders/${folderToDelete}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
 
       if (response.ok) {
         setIsDeleteDialogOpen(false)
-        fetchFolders() // Refresh the list
+        fetchFolders()
 
         toast({
           title: "Folder deleted",
@@ -344,5 +365,16 @@ export default function FoldersPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function FoldersPage() {
+  return (
+    <>
+      <NavHeader />
+      <ProtectedRoute>
+        <FoldersContent />
+      </ProtectedRoute>
+    </>
   )
 }
