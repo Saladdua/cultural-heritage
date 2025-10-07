@@ -60,14 +60,17 @@ export function NavHeader() {
         description: "You have been logged out of your account.",
       })
 
-      router.push("/")
+      // Refresh the page to clear all state
+      window.location.href = "/"
     } catch (error) {
       console.error("Sign out error:", error)
       // Clear local data even if API call fails
       localStorage.removeItem("auth_token")
       localStorage.removeItem("user_data")
       setUser(null)
-      router.push("/")
+
+      // Refresh the page
+      window.location.href = "/"
     }
   }
 

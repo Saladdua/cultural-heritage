@@ -245,13 +245,13 @@ export function RegisterForm({ onRegisterSuccess, onSwitchToLogin }: RegisterFor
           </div>
         </CardContent>
 
-        <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={loading}>
+        <CardFooter className="flex flex-col space-y-4 pt-6">
+          <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create Account
           </Button>
 
-          <div className="text-center text-sm">
+          <div className="text-center text-sm pt-4">
             <span className="text-muted-foreground">Already have an account? </span>
             <Button
               type="button"
