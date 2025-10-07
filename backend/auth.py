@@ -42,16 +42,20 @@ class AuthManager:
             'exp': datetime.utcnow() + timedelta(hours=24),
             'iat': datetime.utcnow()
         }
+        # Use PyJWT's encode method
         return jwt.encode(payload, self.secret_key, algorithm='HS256')
     
     def verify_jwt_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Verify JWT token and return payload"""
         try:
+            # Use PyJWT's decode method
             payload = jwt.decode(token, self.secret_key, algorithms=['HS256'])
             return payload
         except jwt.ExpiredSignatureError:
+            print("Token expired")
             return None
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            print(f"Invalid token: {e}")
             return None
     
     def register_user(self, username: str, email: str, password: str, 
@@ -99,6 +103,7 @@ class AuthManager:
             }
             
         except Exception as e:
+            print(f"Registration error: {e}")
             return {"error": f"Registration failed: {str(e)}"}
     
     def authenticate_user(self, username: str, password: str) -> Dict[str, Any]:
@@ -162,6 +167,7 @@ class AuthManager:
             }
             
         except Exception as e:
+            print(f"Authentication error: {e}")
             return {"error": f"Authentication failed: {str(e)}"}
     
     def get_user_from_token(self, token: str) -> Optional[Dict[str, Any]]:

@@ -124,6 +124,100 @@ def logout():
 def get_profile():
     return jsonify({"user": request.current_user})
 
+@app.route('/api/auth/profile', methods=['PUT'])
+@require_auth
+def update_profile():
+    user_id = request.current_user['id']
+    data = request.json
+    
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database connection failed"}), 500
+    
+    try:
+        cursor = conn.cursor()
+        
+        # Build update query dynamically
+        update_fields = []
+        update_values = []
+        
+        if 'first_name' in data:
+            update_fields.append("first_name = %s")
+            update_values.append(data['first_name'])
+        
+        if 'last_name' in data:
+            update_fields.append("last_name = %s")
+            update_values.append(data['last_name'])
+        
+        if 'email' in data:
+            update_fields.append("email = %s")
+            update_values.append(data['email'])
+        
+        if 'organization' in data:
+            update_fields.append("organization = %s")
+            update_values.append(data['organization'])
+        
+        if 'role' in data:
+            update_fields.append("role = %s")
+            update_values.append(data['role'])
+        
+        if not update_fields:
+            return jsonify({"error": "No fields to update"}), 400
+        
+        update_values.append(user_id)
+        query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = %s"
+        
+        cursor.execute(query, update_values)
+        cursor.close()
+        conn.close()
+        
+        return jsonify({"success": True, "message": "Profile updated successfully"})
+        
+    except Exception as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+# Gallery endpoint - shows all models from all users
+@app.route('/api/gallery/models', methods=['GET'])
+@require_auth
+def get_gallery_models():
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database connection failed"}), 500
+    
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT 
+                m.id,
+                m.name,
+                m.description,
+                m.file_type,
+                m.file_size,
+                m.uploaded_at,
+                m.folder_id,
+                f.name as folder_name,
+                u.username as uploader_username,
+                CONCAT(u.first_name, ' ', u.last_name) as uploader_name,
+                u.organization as uploader_organization
+            FROM models m
+            JOIN folders f ON m.folder_id = f.id
+            JOIN users u ON m.user_id = u.id
+            ORDER BY m.uploaded_at DESC
+        """)
+        
+        models = cursor.fetchall()
+        
+        # Convert datetime objects to strings
+        for model in models:
+            if model['uploaded_at']:
+                model['uploaded_at'] = model['uploaded_at'].strftime('%Y-%m-%d')
+        
+        cursor.close()
+        conn.close()
+        return jsonify(models)
+    except Exception as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
 # Protected API Routes
 @app.route('/api/folders', methods=['GET'])
 @require_auth

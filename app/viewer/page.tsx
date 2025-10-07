@@ -25,6 +25,7 @@ function ViewerContent() {
   const [folder, setFolder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [modelBlobUrl, setModelBlobUrl] = useState<string | null>(null)
 
   // Viewer state
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -41,6 +42,49 @@ function ViewerContent() {
   // Get auth token
   const getAuthToken = () => {
     return localStorage.getItem("auth_token")
+  }
+
+  // Fetch model file and create blob URL
+  const fetchModelFile = async (modelId: number, token: string) => {
+    try {
+      console.log(`Fetching model file for model ID: ${modelId}`)
+
+      const response = await fetch(`http://localhost:5000/api/models/${modelId}/file`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.status === 401) {
+        console.error("Authentication failed when fetching model file")
+        localStorage.removeItem("auth_token")
+        localStorage.removeItem("user_data")
+        toast({
+          title: "Session expired",
+          description: "Please sign in again.",
+          variant: "destructive",
+        })
+        router.push("/auth")
+        return null
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch model file: ${response.status}`)
+      }
+
+      // Convert response to blob
+      const blob = await response.blob()
+      console.log(`Model file blob created: ${blob.size} bytes, type: ${blob.type}`)
+
+      // Create blob URL
+      const blobUrl = URL.createObjectURL(blob)
+      console.log(`Blob URL created: ${blobUrl}`)
+
+      return blobUrl
+    } catch (err) {
+      console.error("Error fetching model file:", err)
+      throw err
+    }
   }
 
   // Fetch model and folder data with auth
@@ -66,6 +110,8 @@ function ViewerContent() {
           return
         }
 
+        console.log(`Fetching data for model ${modelId} in folder ${folderId}`)
+
         // Fetch model data
         const modelResponse = await fetch(`http://localhost:5000/api/models/${modelId}`, {
           headers: {
@@ -89,8 +135,9 @@ function ViewerContent() {
           throw new Error("Failed to fetch model data")
         }
         const modelData = await modelResponse.json()
+        console.log("Model data fetched:", modelData)
 
-        // Fetch folder data for folder name
+        // Fetch folder data
         const folderResponse = await fetch(`http://localhost:5000/api/folders/${folderId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -101,9 +148,22 @@ function ViewerContent() {
           throw new Error("Failed to fetch folder data")
         }
         const folderData = await folderResponse.json()
+        console.log("Folder data fetched:", folderData)
 
         setModel(modelData)
         setFolder(folderData)
+
+        // Fetch the actual model file and create blob URL
+        console.log("Fetching model file...")
+        const blobUrl = await fetchModelFile(modelId, token)
+
+        if (blobUrl) {
+          setModelBlobUrl(blobUrl)
+          console.log("Model blob URL set successfully")
+        } else {
+          throw new Error("Failed to create model blob URL")
+        }
+
         setError(null)
       } catch (err) {
         console.error("Error fetching data:", err)
@@ -119,7 +179,15 @@ function ViewerContent() {
     }
 
     fetchData()
-  }, [modelId, folderId, toast, router])
+
+    // Cleanup blob URL when component unmounts
+    return () => {
+      if (modelBlobUrl) {
+        console.log("Cleaning up blob URL")
+        URL.revokeObjectURL(modelBlobUrl)
+      }
+    }
+  }, [modelId, folderId])
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -171,13 +239,14 @@ function ViewerContent() {
         <div className="flex flex-col items-center">
           <Loader2 className="h-8 w-8 animate-spin mb-4" />
           <p className="text-lg font-medium">Loading 3D model...</p>
+          <p className="text-sm text-slate-500">Fetching model file securely</p>
         </div>
       </div>
     )
   }
 
   // Error state
-  if (error || !model || !folder) {
+  if (error || !model || !folder || !modelBlobUrl) {
     return (
       <div className="container mx-auto py-10 text-center">
         <h1 className="text-3xl font-bold mb-4">Model Not Found</h1>
@@ -188,9 +257,6 @@ function ViewerContent() {
       </div>
     )
   }
-
-  // Construct the model URL with auth token
-  const modelUrl = `http://localhost:5000/api/models/${modelId}/file`
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -216,7 +282,7 @@ function ViewerContent() {
             >
               <ThreeJsViewer
                 key={resetCameraKey}
-                modelUrl={modelUrl}
+                modelUrl={modelBlobUrl}
                 fileType={model.file_type}
                 explodeAmount={explodeAmount}
                 colorsByFace={colorsByFace}

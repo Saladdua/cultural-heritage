@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
-import { FolderPlus, Database, Cable as Cube, Lock } from "lucide-react"
+import { FolderPlus, Database, Lock, Battery as Gallery } from "lucide-react"
 import { NavHeader } from "@/components/nav-header"
 
 export default function Home() {
@@ -44,18 +44,16 @@ export default function Home() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center">
-                  <FolderPlus className="mr-2 h-5 w-5" />
-                  Folder Management
+                  <Gallery className="mr-2 h-5 w-5" />
+                  3D Gallery
                 </CardTitle>
-                <CardDescription>Upload and organize your 3D artifacts</CardDescription>
+                <CardDescription>Browse all uploaded models</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-slate-500 mb-4">
-                  Create folders to organize your 3D mesh files (.obj, .ply, .stl)
-                </p>
+                <p className="text-sm text-slate-500 mb-4">Explore 3D models uploaded by researchers and curators</p>
                 {isAuthenticated ? (
-                  <Link href="/folders">
-                    <Button>Manage Folders</Button>
+                  <Link href="/gallery">
+                    <Button>Browse Gallery</Button>
                   </Link>
                 ) : (
                   <Button disabled>
@@ -69,16 +67,18 @@ export default function Home() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center">
-                  <Cube className="mr-2 h-5 w-5" />
-                  3D Visualization
+                  <FolderPlus className="mr-2 h-5 w-5" />
+                  Folder Management
                 </CardTitle>
-                <CardDescription>Explore and interact with 3D models</CardDescription>
+                <CardDescription>Upload and organize your 3D artifacts</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-slate-500 mb-4">Inspect, colorize, and explode 3D artifacts</p>
+                <p className="text-sm text-slate-500 mb-4">
+                  Create folders to organize your 3D mesh files (.obj, .ply, .stl)
+                </p>
                 {isAuthenticated ? (
-                  <Link href="/viewer">
-                    <Button>Open Viewer</Button>
+                  <Link href="/folders">
+                    <Button>Manage Folders</Button>
                   </Link>
                 ) : (
                   <Button disabled>
@@ -113,13 +113,13 @@ export default function Home() {
                 <strong>Create an account</strong> or sign in to access the platform
               </li>
               <li>
+                <strong>Browse the gallery</strong> to view models uploaded by other users
+              </li>
+              <li>
                 <strong>Create a new folder</strong> to organize your 3D artifacts
               </li>
               <li>
                 <strong>Upload your 3D mesh files</strong> (.obj, .ply, .stl, .glb, .gltf)
-              </li>
-              <li>
-                <strong>Open the 3D viewer</strong> to interact with your models
               </li>
               <li>
                 <strong>Use the visualization tools</strong> to inspect, colorize, and explode your 3D models

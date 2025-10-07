@@ -8,6 +8,7 @@ import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js"
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js"
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
 
 interface ThreeJsViewerProps {
   modelUrl: string
@@ -53,21 +54,26 @@ function CameraController({ target }: { target: THREE.Object3D | null }) {
 
       // Calculate optimal camera distance
       const maxDim = Math.max(size.x, size.y, size.z)
-      const fov = camera.fov * (Math.PI / 180)
-      const distance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.2 // Add 20% padding
 
-      // Position camera
-      const direction = new THREE.Vector3(1, 1, 1).normalize()
-      const newPosition = center.clone().add(direction.multiplyScalar(distance))
+      // Check if camera is PerspectiveCamera (has fov property)
+      if (camera instanceof THREE.PerspectiveCamera) {
+        const fov = camera.fov * (Math.PI / 180)
+        const distance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.2 // Add 20% padding
 
-      camera.position.copy(newPosition)
-      camera.lookAt(center)
+        // Position camera
+        const direction = new THREE.Vector3(1, 1, 1).normalize()
+        const newPosition = center.clone().add(direction.multiplyScalar(distance))
 
-      // Update controls
-      if (controls.target) {
-        controls.target.copy(center)
+        camera.position.copy(newPosition)
+        camera.lookAt(center)
       }
-      controls.update()
+
+      // Update controls - cast to OrbitControlsImpl to access target
+      const orbitControls = controls as unknown as OrbitControlsImpl
+      if (orbitControls && orbitControls.target) {
+        orbitControls.target.copy(center)
+        orbitControls.update()
+      }
     }
   }, [target, camera, controls])
 
@@ -409,15 +415,17 @@ function ActualModel({
     })
   })
 
-  // Add faces to scene
+  // Add faces to scene - only visible in Face View
   useEffect(() => {
     if (!showTriangles) {
+      // Face View: show extracted faces
       faces.forEach((face) => {
         if (groupRef.current) {
           groupRef.current.add(face)
         }
       })
     } else {
+      // Triangle View: remove extracted faces
       faces.forEach((face) => {
         if (groupRef.current) {
           groupRef.current.remove(face)
@@ -440,10 +448,10 @@ function ActualModel({
       <CameraController target={originalModel} />
 
       <group ref={groupRef}>
-        {/* Original model with textures (visible only when not exploding and in triangle view) */}
+        {/* Original model - visible only in Triangle View */}
         {originalModel && (
           <group ref={originalModelRef}>
-            <primitive object={originalModel} visible={showTriangles || explodeAmount === 0} />
+            <primitive object={originalModel} visible={showTriangles} />
           </group>
         )}
       </group>

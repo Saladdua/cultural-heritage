@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { User, LogOut, Settings, Cable as Cube, FolderPlus } from "lucide-react"
+import { User, LogOut, Settings, FolderPlus, Battery as Gallery } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
@@ -80,11 +80,11 @@ export function NavHeader() {
 
   if (loading) {
     return (
-      <header className="bg-white border-b border-slate-200 shadow-sm">
+      <header className="bg-background border-b border-border shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <Link href="/">
-              <h1 className="text-2xl font-bold text-slate-800">3D Cultural Heritage</h1>
+              <h1 className="text-2xl font-bold">3D Cultural Heritage</h1>
             </Link>
           </div>
         </div>
@@ -93,11 +93,11 @@ export function NavHeader() {
   }
 
   return (
-    <header className="bg-white border-b border-slate-200 shadow-sm">
+    <header className="bg-background border-b border-border shadow-sm">
       <div className="container mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
           <Link href="/">
-            <h1 className="text-2xl font-bold text-slate-800 cursor-pointer hover:text-slate-600 transition">
+            <h1 className="text-2xl font-bold cursor-pointer hover:text-muted-foreground transition">
               🏛️ 3D Cultural Heritage
             </h1>
           </Link>
@@ -105,6 +105,13 @@ export function NavHeader() {
           <nav className="flex items-center gap-4">
             {user ? (
               <>
+                <Link href="/gallery">
+                  <Button variant="ghost">
+                    <Gallery className="mr-2 h-4 w-4" />
+                    Gallery
+                  </Button>
+                </Link>
+
                 <Link href="/folders">
                   <Button variant="ghost">
                     <FolderPlus className="mr-2 h-4 w-4" />
@@ -112,18 +119,13 @@ export function NavHeader() {
                   </Button>
                 </Link>
 
-                <Link href="/viewer">
-                  <Button variant="ghost">
-                    <Cube className="mr-2 h-4 w-4" />
-                    3D Viewer
-                  </Button>
-                </Link>
-
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                       <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-primary text-white">{getUserInitials()}</AvatarFallback>
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {getUserInitials()}
+                        </AvatarFallback>
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
@@ -137,11 +139,11 @@ export function NavHeader() {
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem disabled>
+                    <DropdownMenuItem onClick={() => router.push("/profile")}>
                       <User className="mr-2 h-4 w-4" />
                       <span>Profile</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled>
+                    <DropdownMenuItem onClick={() => router.push("/settings")}>
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Settings</span>
                     </DropdownMenuItem>
