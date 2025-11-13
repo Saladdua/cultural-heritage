@@ -1,20 +1,80 @@
-# Web Application For 3D Cultural-Heritage Data Visualization
+# 3D Cultural Heritage Visualization Platform
 
-Acknowledgement									
-________________________________________________________________________
+A web-based platform for uploading, managing, and interactively visualizing 3D models of cultural artifacts. Built with modern web technologies to make digital heritage accessible to researchers, curators, and students worldwide.
 
-First, I am very grateful for having the opportunity of doing a research at ICT Lab. It was an amazing time for me to work with hardworking and wonderful people, and also a huge opportunity to improve my knowledge for my future career.
-I want to express my sincere gratitude to MsC. Huynh Vinh Nam, my main supervisor, for providing me with the opportunity to intern under his guidance. His expertise, support, and valuable insightful feedbacks have greatly contributed to my work throughout the research.
-Finally, I want to thank to my family and friends for their help and encouragement, which has motivated me to overcome all the challenges I faced during the journey.
+## 🎯 Overview
 
-Abstract
-________________________________________________________________________
+This platform addresses the challenge of digital preservation and accessibility of cultural heritage by providing:
 
-Cultural heritage preservation has become increasingly important in the digital age, with 3D digitization playing a crucial role in documenting and preserving artifacts for future generations. This thesis presents a web application for 3D cultural heritage data visualization that enables users to upload, mange and interact with 3D mesh files of cultural artifacts. This full-stack application has Python Flask for backend, MySQL for data management, and HTML, CSS, JavaScript, Three.js for 3D visualization. The system supports many 3D files formats (OBJ, PLY, STL). 
-In this project, I want to archive these main results: hierarchical folder management for organizing artifacts, advanced 3D visualization tools with interactive capabilities, color customization for individual artifact faces, and an “explode” feature for detailed structural analysis. This project demonstrates improvements in accessibility and usability compared to traditional 3D viewing software, making cultural heritage data more accessible to both experts and researchers.
-Keywords: Cultural Heritage, 3D Visualization, Web Application, Three.js, Digital Preservation, Interactive Visualization. 
+- **Universal Web Access**: View 3D artifacts from anywhere without software installation
+- **Interactive Exploration**: Rotate, zoom, and examine 3D models in real-time with WebGL rendering
+- **Advanced Analysis Tools**: Face-level coloring and exploded views for detailed artifact examination
+- **Collaborative Environment**: Multi-user system with role-based access control
+- **Integrated Management**: Unified folder system for organizing collections
 
-Context and Motivation
-________________________________________________________________________
-Cultural heritage preservation ensures that artifacts, monuments, and archaeological findings are preserved for future generations. Traditional preservation methods, while allow researchers and general public to witness directly, face significant challenges including physical deterioration, limited accessibility, and the risk of loss due to natural disasters or human conflicts. 3D digitization technologies have revolutionized cultural heritage preservation by keeping the highly detailed digital replicas of physical artifacts while skipping the risk of damage. The digital representations not only serve as permanent records but also provide opportunities for research and education for everyone. However, the effective of 3D cultural heritage data requires sophisticated visualization and management tools that can handle the complexity and diversity of archaeological and cultural artifacts. The current solutions for 3D cultural heritage visualization often suffer from several limitations: they are usually desktop-based applications with limited accessibility, lack of data management, and require specialized software knowledge. Furthermore, many existing 3D visualization tools don’t support many 3D file formats used in digitization projects.
-This project, I want to bridge the gap between advanced 3D digitization capabilities and accessible, user-friendly visualization tools. This project aims to simplify the access to cultural heritage data and enhance the capabilities of researchers, educators and expert archaeologists. 
+## ✨ Key Features
+
+### Authentication & Authorization
+- JWT token-based authentication with bcrypt password hashing (12-round cost factor)
+- Role-based access control (Admin, Researcher, Curator, Student)
+- Secure user data isolation
+
+### 3D Model Management
+- Support for multiple formats: OBJ, PLY, STL, GLB, GLTF
+- File upload with validation (max 100MB)
+- Automatic model centering and scaling
+- Metadata storage and search functionality
+
+### Interactive 3D Viewer
+- **Smooth Navigation**: Rotate, pan, zoom with mouse or touch
+- **Face Detection & Coloring**: Select and color individual mesh faces for analysis
+- **Exploded View**: Separate mesh faces from center for detailed examination
+- **GPU-Accelerated Rendering**: 60 FPS performance for models up to 100k faces
+
+### Gallery System
+- Browse all uploaded models from all users
+- Read-only access to others' models
+- Full edit/delete rights for own models
+- Real-time search and filtering
+
+### Folder Organization
+- Create, rename, and delete folders
+- Organize models into collections
+- View folder contents with detailed metadata
+
+## 🛠️ Technology Stack
+
+### Frontend
+- **Framework**: Next.js 15 with React 19
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui components
+- **3D Graphics**: Three.js (v0.171.0) + React Three Fiber
+- **Data Fetching**: SWR for client-side state management
+- **Port**: localhost:3000
+
+### Backend
+- **Framework**: Flask 3.1 (Python)
+- **Authentication**: PyJWT 2.10.1
+- **Security**: bcrypt 4.2.1
+- **Database Driver**: mysql-connector-python 9.1.0
+- **CORS**: flask-cors
+- **Port**: localhost:5000
+
+### Database
+- **Engine**: MySQL 8.x
+- **Port**: localhost:3306
+- **Schema**: Relational with 4 main tables (users, folders, models, user_activity)
+
+## 📋 Prerequisites
+
+- Node.js 18.x or higher
+- Python 3.8 or higher
+- MySQL 8.x
+- npm or yarn
+
+## 🚀 Installation & Setup
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/yourusername/3d-heritage-platform.git
+cd 3d-heritage-platform
