@@ -122,8 +122,8 @@ Before installation, ensure you have:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/3d-cultural-heritage-platform.git
-cd 3d-cultural-heritage-platform
+git clone https://github.com/Saladdua/cultural-heritage.git
+cd cultural-heritage
 ```
 
 ### 2. Frontend Setup
