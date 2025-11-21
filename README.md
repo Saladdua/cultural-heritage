@@ -1,4 +1,10 @@
-# 3D Cultural Heritage Visualization Platform
+<div align="center">
+
+<img src="public/assets/banner.png" alt="App Icon" width="1696" height="608" />
+
+# 3D Cultural Heritage Data Visualization
+
+</div>
 
 <div align="center">
 
@@ -115,6 +121,405 @@ Before installation, ensure you have:
 
 ### 1. Clone the Repository
 
-```bash
+\`\`\`bash
 git clone https://github.com/yourusername/3d-cultural-heritage-platform.git
 cd 3d-cultural-heritage-platform
+\`\`\`
+
+### 2. Frontend Setup
+
+\`\`\`bash
+# Install dependencies
+npm install
+
+# Create environment file
+cat > .env.local << EOF
+NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL=http://localhost:3000
+EOF
+
+# Start development server
+npm run dev
+# Frontend available at http://localhost:3000
+\`\`\`
+
+### 3. Backend Setup
+
+\`\`\`bash
+cd backend
+
+# Create Python virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create environment file
+cat > .env << EOF
+FLASK_ENV=development
+DATABASE_URL=localhost
+DATABASE_USER=root
+DATABASE_PASSWORD=your_password
+DATABASE_NAME=heritage_db
+SECRET_KEY=$(openssl rand -hex 32)
+JWT_SECRET=$(openssl rand -hex 32)
+EOF
+
+# Run Flask server
+python app.py
+# Backend API available at http://localhost:5000
+\`\`\`
+
+### 4. Database Setup
+
+\`\`\`bash
+# Connect to MySQL
+mysql -u root -p
+
+# Execute in MySQL
+CREATE DATABASE heritage_db;
+EXIT;
+
+# Load schema
+mysql -u root -p heritage_db < schema.sql
+\`\`\`
+
+### 5. Verify Installation
+
+\`\`\`bash
+# Test API endpoint
+curl http://localhost:5000/api/health
+
+# Test frontend
+open http://localhost:3000
+\`\`\`
+
+---
+
+## 📖 Quick Start Guide
+
+### 1. User Registration
+\`\`\`bash
+# Sign up with your credentials
+POST /api/auth/register
+{
+  "username": "researcher1",
+  "email": "researcher@example.com",
+  "password": "securePassword123",
+  "first_name": "John",
+  "last_name": "Doe",
+  "organization": "University of Oxford"
+}
+\`\`\`
+
+### 2. Create Collection Folder
+- Navigate to Dashboard → Folder Management
+- Click "Create Folder"
+- Name your collection (e.g., "Ancient Pottery")
+- Add descriptive information
+
+### 3. Upload 3D Model
+- Select your folder
+- Click "Upload Model"
+- Choose file (OBJ, PLY, STL, GLB, GLTF)
+- File auto-centers and loads in viewer
+- Maximum file size: 100MB
+
+### 4. Explore & Analyze
+- **Rotate**: Left-click and drag
+- **Pan**: Right-click and drag
+- **Zoom**: Scroll wheel
+- **Color Faces**: Click "Face Coloring" tool
+- **Explode View**: Drag "Explosion" slider (0-5)
+- **Reset View**: Click "Reset Camera"
+
+### 5. Share Discoveries
+- Browse Gallery to see community models
+- Access public models from other researchers
+- View uploader information and organization
+
+---
+
+## 🏗️ Architecture Overview
+
+\`\`\`
+┌─────────────────────────────────────────────────────────┐
+│                     User Browser                         │
+├─────────────────────────────────────────────────────────┤
+│   Next.js Frontend (Port 3000)                          │
+│   • Authentication & Dashboard                          │
+│   • 3D Viewer with WebGL Canvas                         │
+│   • Folder & Gallery Management                         │
+└────────────────┬────────────────────────────────────────┘
+                 │ RESTful API (JSON)
+┌────────────────▼────────────────────────────────────────┐
+│   Flask Backend (Port 5000)                             │
+│   • JWT Authentication & Authorization                  │
+│   • Model Upload & Validation                           │
+│   • 3D Format Parsing                                   │
+│   • File Storage Management                             │
+└────────────────┬────────────────────────────────────────┘
+                 │
+    ┌────────────┴──────────────┐
+    │                           │
+┌───▼──────┐          ┌─────────▼────────┐
+│ MySQL DB │          │ File Storage     │
+│ (3306)   │          │ (uploads folder) │
+├──────────┤          ├──────────────────┤
+│ • Users  │          │ 3D Model Files   │
+│ • Folders│          │ User-Organized   │
+│ • Models │          │ UUID Filenames   │
+└──────────┘          └──────────────────┘
+
+3D Rendering Pipeline:
+File → Three.js Loader → Geometry Processing → WebGL Canvas
+       (OBJ/PLY/STL)    (Center, Scale)      (60 FPS)
+\`\`\`
+
+### Key Components
+
+**Frontend Components** (20+)
+- Authentication pages (Login, Register)
+- Dashboard with navigation
+- Folder management interface
+- 3D viewer with interactive controls
+- Gallery browser with search
+- User profile management
+
+**Backend Services** (15+ API endpoints)
+- Authentication service (register, login, logout)
+- User management
+- Folder CRUD operations
+- Model upload and management
+- Gallery listing and filtering
+- 3D file processing
+
+**Database Schema**
+- `users`: Authentication and profile data
+- `folders`: Collection organization
+- `models`: 3D model metadata
+- `user_activity`: Audit logging
+
+---
+
+## 🔐 Security Features
+
+### Authentication & Authorization
+- ✓ JWT tokens with 24-hour expiration
+- ✓ bcrypt password hashing (12-round cost factor)
+- ✓ Role-Based Access Control (RBAC)
+- ✓ User data isolation per user
+
+### Data Protection
+- ✓ Parameterized SQL queries (prevent injection)
+- ✓ Input validation (client & server)
+- ✓ File type whitelisting
+- ✓ Secure filename handling
+- ✓ CORS protection with origin validation
+
+### File Security
+- ✓ File type verification (magic numbers)
+- ✓ Size limit enforcement (100MB max)
+- ✓ User-specific storage directories
+- ✓ No execution permissions on upload folder
+
+### Audit & Logging
+- ✓ Activity logging for all operations
+- ✓ Failed login attempt tracking
+- ✓ Change history for data modifications
+- ✓ IP address and user-agent logging
+
+---
+
+## 📊 Performance Metrics
+
+| Metric | Target | Status |
+|--------|--------|--------|
+| First Contentful Paint | < 1.5s | Achieved |
+| Time to Interactive | < 3s | Achieved |
+| Model Load Time (5MB avg) | < 2s | Achieved |
+| 3D Rendering Performance | 60 FPS | Achieved (< 100k faces) |
+| Concurrent Users (single instance) | 100-500 | Scalable |
+
+### Optimization Techniques
+- Code splitting by route
+- Image optimization
+- Database query optimization
+- Three.js rendering optimization
+- Gzip compression
+- Browser caching with ETags
+
+---
+
+## 🧪 Testing
+
+### Frontend Tests
+\`\`\`bash
+npm run test
+npm run lint
+npm run type-check
+\`\`\`
+
+### Backend Tests
+\`\`\`bash
+cd backend
+pytest
+flake8 .
+mypy .
+\`\`\`
+
+### Manual Testing Checklist
+- [ ] User registration and login
+- [ ] Folder creation and management
+- [ ] 3D model upload and validation
+- [ ] Model viewing in 3D
+- [ ] Face coloring feature
+- [ ] Exploded view slider
+- [ ] Gallery browsing
+- [ ] Cross-user permissions
+- [ ] Error handling
+- [ ] Mobile responsiveness
+
+---
+
+## 🚀 Production Deployment
+
+### Frontend (Vercel)
+\`\`\`bash
+npm run build
+vercel deploy --prod
+\`\`\`
+
+### Backend (AWS EC2 with Gunicorn)
+\`\`\`bash
+gunicorn --workers 4 --bind 0.0.0.0:8000 app:app
+\`\`\`
+
+### Database (AWS RDS)
+- Multi-AZ deployment
+- Automated daily backups
+- 30-day retention
+- Read replicas for scaling
+
+### Storage (AWS S3)
+- CloudFront CDN integration
+- Versioning enabled
+- Lifecycle policies for cost optimization
+
+**Estimated Monthly Costs (Production)**
+- Frontend (Vercel): $20
+- Backend (t3.medium EC2): $40
+- Database (db.t3.small RDS): $80
+- Storage (S3 + CDN): $50
+- **Total: ~$190/month** (scalable)
+
+---
+
+## 📚 Documentation
+
+- [Architecture Guide](./ARCHITECTURE.md) - Detailed system design
+- [API Documentation](./API_DOCUMENTATION.md) - Complete endpoint reference
+- [Deployment Guide](./DEPLOYMENT.md) - Production setup instructions
+- [Contributing Guide](./CONTRIBUTING.md) - Development guidelines
+
+---
+
+## 🎯 Future Enhancements
+
+### Phase 1: Enhanced Analysis (Q2 2024)
+- [ ] Measurement tools (distance, angle)
+- [ ] Annotation system with markers
+- [ ] Side-by-side model comparison
+- [ ] Cross-section view for internal structure
+
+### Phase 2: Collaboration (Q3 2024)
+- [ ] Real-time multi-user viewing
+- [ ] Comment threads on models
+- [ ] Version control for iterations
+- [ ] Shareable view-only links
+
+### Phase 3: Intelligence (Q4 2024)
+- [ ] Photogrammetry integration
+- [ ] AI-powered artifact classification
+- [ ] Similar artifact search
+- [ ] Automated damage assessment
+
+### Phase 4: Extended Reality (2025)
+- [ ] VR support (Meta Quest, HTC Vive)
+- [ ] AR mobile app (iOS/Android)
+- [ ] 3D printing preparation
+- [ ] Public API for integrations
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from developers, researchers, and cultural heritage professionals!
+
+### Getting Started
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open Pull Request
+
+### Development Guidelines
+- Follow existing code style
+- Add tests for new features
+- Update documentation
+- Ensure TypeScript compilation
+- Test on multiple browsers
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see [LICENSE](./LICENSE) file for details.
+
+### What this means:
+- ✓ Free to use commercially
+- ✓ Modify and distribute
+- ✓ Private and public use
+- ✗ No liability or warranty
+
+---
+
+## 🙏 Acknowledgments
+
+This project was developed as a thesis project combining computer science and cultural heritage preservation. Special thanks to:
+
+- **Three.js Community** for exceptional 3D graphics library
+- **shadcn/ui** for accessible component design
+- **Cultural Heritage Institutions** worldwide for inspiration
+- **Open Source Community** for invaluable tools and libraries
+
+---
+
+## 📧 Support & Contact
+
+### Questions or Issues?
+- Open an [Issue](https://github.com/yourusername/3d-cultural-heritage-platform/issues)
+- Check [Documentation](./docs)
+- Email: your-email@example.com
+
+### Follow the Project
+- Star us on GitHub
+- Watch for updates
+- Contribute code
+- Share with colleagues
+
+---
+
+<div align="center">
+
+### Made with dedication for Cultural Heritage Preservation
+
+Made with Next.js | Powered by React | Rendered with Three.js | Backend with Flask | Database MySQL
+
+**Let's preserve cultural heritage for future generations through technology.**
+
+
+</div>
