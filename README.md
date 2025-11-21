@@ -121,14 +121,14 @@ Before installation, ensure you have:
 
 ### 1. Clone the Repository
 
-\`\`\`bash
+```bash
 git clone https://github.com/yourusername/3d-cultural-heritage-platform.git
 cd 3d-cultural-heritage-platform
-\`\`\`
+```
 
 ### 2. Frontend Setup
 
-\`\`\`bash
+```bash
 # Install dependencies
 npm install
 
@@ -141,11 +141,11 @@ EOF
 # Start development server
 npm run dev
 # Frontend available at http://localhost:3000
-\`\`\`
+```
 
 ### 3. Backend Setup
 
-\`\`\`bash
+```bash
 cd backend
 
 # Create Python virtual environment
@@ -169,11 +169,11 @@ EOF
 # Run Flask server
 python app.py
 # Backend API available at http://localhost:5000
-\`\`\`
+```
 
 ### 4. Database Setup
 
-\`\`\`bash
+```bash
 # Connect to MySQL
 mysql -u root -p
 
@@ -183,24 +183,24 @@ EXIT;
 
 # Load schema
 mysql -u root -p heritage_db < schema.sql
-\`\`\`
+```
 
 ### 5. Verify Installation
 
-\`\`\`bash
+```bash
 # Test API endpoint
 curl http://localhost:5000/api/health
 
 # Test frontend
 open http://localhost:3000
-\`\`\`
+```
 
 ---
 
 ## 📖 Quick Start Guide
 
 ### 1. User Registration
-\`\`\`bash
+```bash
 # Sign up with your credentials
 POST /api/auth/register
 {
@@ -211,7 +211,7 @@ POST /api/auth/register
   "last_name": "Doe",
   "organization": "University of Oxford"
 }
-\`\`\`
+```
 
 ### 2. Create Collection Folder
 - Navigate to Dashboard → Folder Management
@@ -243,7 +243,7 @@ POST /api/auth/register
 
 ## 🏗️ Architecture Overview
 
-\`\`\`
+```
 ┌─────────────────────────────────────────────────────────┐
 │                     User Browser                         │
 ├─────────────────────────────────────────────────────────┤
@@ -275,7 +275,7 @@ POST /api/auth/register
 3D Rendering Pipeline:
 File → Three.js Loader → Geometry Processing → WebGL Canvas
        (OBJ/PLY/STL)    (Center, Scale)      (60 FPS)
-\`\`\`
+```
 
 ### Key Components
 
@@ -355,19 +355,19 @@ File → Three.js Loader → Geometry Processing → WebGL Canvas
 ## 🧪 Testing
 
 ### Frontend Tests
-\`\`\`bash
+```bash
 npm run test
 npm run lint
 npm run type-check
-\`\`\`
+```
 
 ### Backend Tests
-\`\`\`bash
+```bash
 cd backend
 pytest
 flake8 .
 mypy .
-\`\`\`
+```
 
 ### Manual Testing Checklist
 - [ ] User registration and login
@@ -380,39 +380,6 @@ mypy .
 - [ ] Cross-user permissions
 - [ ] Error handling
 - [ ] Mobile responsiveness
-
----
-
-## 🚀 Production Deployment
-
-### Frontend (Vercel)
-\`\`\`bash
-npm run build
-vercel deploy --prod
-\`\`\`
-
-### Backend (AWS EC2 with Gunicorn)
-\`\`\`bash
-gunicorn --workers 4 --bind 0.0.0.0:8000 app:app
-\`\`\`
-
-### Database (AWS RDS)
-- Multi-AZ deployment
-- Automated daily backups
-- 30-day retention
-- Read replicas for scaling
-
-### Storage (AWS S3)
-- CloudFront CDN integration
-- Versioning enabled
-- Lifecycle policies for cost optimization
-
-**Estimated Monthly Costs (Production)**
-- Frontend (Vercel): $20
-- Backend (t3.medium EC2): $40
-- Database (db.t3.small RDS): $80
-- Storage (S3 + CDN): $50
-- **Total: ~$190/month** (scalable)
 
 ---
 
@@ -495,31 +462,5 @@ This project was developed as a thesis project combining computer science and cu
 - **shadcn/ui** for accessible component design
 - **Cultural Heritage Institutions** worldwide for inspiration
 - **Open Source Community** for invaluable tools and libraries
-
----
-
-## 📧 Support & Contact
-
-### Questions or Issues?
-- Open an [Issue](https://github.com/yourusername/3d-cultural-heritage-platform/issues)
-- Check [Documentation](./docs)
-- Email: your-email@example.com
-
-### Follow the Project
-- Star us on GitHub
-- Watch for updates
-- Contribute code
-- Share with colleagues
-
----
-
-<div align="center">
-
-### Made with dedication for Cultural Heritage Preservation
-
-Made with Next.js | Powered by React | Rendered with Three.js | Backend with Flask | Database MySQL
-
-**Let's preserve cultural heritage for future generations through technology.**
-
 
 </div>
