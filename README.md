@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/assets/banner.png" alt="App Icon" width="1696" height="608" />
+<img src="public/banner.png" alt="App Icon" width="1696" height="608" />
 
 # 3D Cultural Heritage Data Visualization
 
