@@ -412,15 +412,5 @@ This project is licensed under the **MIT License** - see [LICENSE](./LICENSE) fi
 - ✓ Private and public use
 - ✗ No liability or warranty
 
----
-
-## 🙏 Acknowledgments
-
-This project was developed as a thesis project combining computer science and cultural heritage preservation. Special thanks to:
-
-- **Three.js Community** for exceptional 3D graphics library
-- **shadcn/ui** for accessible component design
-- **Cultural Heritage Institutions** worldwide for inspiration
-- **Open Source Community** for invaluable tools and libraries
 
 </div>
