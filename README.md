@@ -227,9 +227,14 @@ POST /api/auth/register
 - Maximum file size: 100MB
 
 ### 4. Explore & Analyze
+<img src="assets/Picture1.png" alt="DemoImg" />
+<img src="assets/Picture2.png" alt="DemoImg" />
 - **Rotate**: Left-click and drag
 - **Pan**: Right-click and drag
 - **Zoom**: Scroll wheel
+<img src="assets/Picture3.png" alt="DemoImg" />
+<img src="assets/Picture4.png" alt="DemoImg" />
+<img src="assets/Picture5.png" alt="DemoImg" />
 - **Color Faces**: Click "Face Coloring" tool
 - **Explode View**: Drag "Explosion" slider (0-5)
 - **Reset View**: Click "Reset Camera"
